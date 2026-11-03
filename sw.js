@@ -1,26 +1,28 @@
-const CACHE_NAME = 'market-management-pwa-v2';
-const APP_SHELL = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png'];
+const CACHE_NAME = 'market-management-pwa-v3';
+const APP_SHELL = [
+  new URL('./', self.registration.scope).href,
+  new URL('index.html', self.registration.scope).href,
+  new URL('manifest.webmanifest', self.registration.scope).href,
+  new URL('icons/icon-192.png', self.registration.scope).href,
+  new URL('icons/icon-512.png', self.registration.scope).href
+];
 const EXTERNAL_ASSETS = [
   'https://cdn.tailwindcss.com',
   'https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
   'https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap'
 ];
-
 self.addEventListener('install', event => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE_NAME);
-    // Required local files must exist; missing icons previously caused install failure.
     await cache.addAll(APP_SHELL);
-    // Best-effort warm cache of CDN assets. Failure here must not abort SW installation.
     await Promise.allSettled(EXTERNAL_ASSETS.map(async url => {
       const response = await fetch(url, { mode: 'no-cors', cache: 'reload' });
-      await cache.put(url, response);
+      if (response && (response.ok || response.type === 'opaque')) await cache.put(url, response);
     }));
     await self.skipWaiting();
   })());
 });
-
 self.addEventListener('activate', event => {
   event.waitUntil((async () => {
     const keys = await caches.keys();
@@ -28,30 +30,28 @@ self.addEventListener('activate', event => {
     await self.clients.claim();
   })());
 });
-
 self.addEventListener('fetch', event => {
   const request = event.request;
   if (request.method !== 'GET') return;
-  const url = new URL(request.url);
   event.respondWith((async () => {
     const cache = await caches.open(CACHE_NAME);
-    const cached = await cache.match(request, { ignoreSearch: false });
     if (request.mode === 'navigate') {
       try {
         const response = await fetch(request);
-        if (response && response.ok) await cache.put('./index.html', response.clone());
+        if (response && response.ok) await cache.put(new URL('index.html', self.registration.scope).href, response.clone());
         return response;
       } catch (_) {
-        return cached || (await cache.match('./index.html')) || (await cache.match('./'));
+        return (await cache.match(request)) ||
+          (await cache.match(new URL('index.html', self.registration.scope).href)) ||
+          (await cache.match(new URL('./', self.registration.scope).href));
       }
     }
+    const cached = await cache.match(request);
     if (cached) return cached;
     try {
       const response = await fetch(request);
       if (response && (response.ok || response.type === 'opaque')) cache.put(request, response.clone()).catch(() => {});
       return response;
-    } catch (error) {
-      throw error;
-    }
+    } catch (error) { throw error; }
   })());
 });
