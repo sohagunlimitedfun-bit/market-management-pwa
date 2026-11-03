@@ -1,0 +1,18 @@
+{
+  "id": "./",
+  "name": "Market Management",
+  "short_name": "Market Mgmt",
+  "description": "দোকান, মাসিক বিল, পেমেন্ট ও বকেয়া ব্যবস্থাপনা",
+  "lang": "bn",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f9fafb",
+  "theme_color": "#166534",
+  "icons": [
+    {"src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}

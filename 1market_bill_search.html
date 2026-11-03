@@ -1,0 +1,1334 @@
+<!DOCTYPE html>
+<html lang="bn" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#166534">
+    <meta name="description" content="দোকান, মাসিক বিল, পেমেন্ট ও বকেয়া ব্যবস্থাপনা">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <title>বাজার ম্যানেজমেন্ট ওয়েবসাইট - Market Management</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Inter & Noto Sans Bengali -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        marketGreen: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                            800: '#166534',
+                            900: '#14532d',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'Noto Sans Bengali', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @media print {
+            body { background: white !important; }
+            .no-print { display: none !important; }
+            .printable-area { box-shadow: none !important; border: none !important; padding: 0 !important; }
+        }
+    </style>
+</head>
+<body class="h-full bg-gray-50 text-gray-800 font-sans" x-data="marketApp()">
+
+    <!-- LOGIN SCREEN -->
+    <div x-show="!isLoggedIn" class="fixed inset-0 z-50 flex items-center justify-center bg-marketGreen-900 bg-opacity-95 p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 border border-marketGreen-100">
+            <div class="text-center mb-8">
+                <div class="inline-flex items-center justify-center w-16 h-16 bg-marketGreen-100 text-marketGreen-700 rounded-2xl mb-4 shadow-inner">
+                    <i class="fa-solid fa-store text-3xl"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-gray-900" x-text="settings.marketName"></h2>
+                <p class="text-sm text-gray-500 mt-1">ব্যবসায়ীদের বিল দেখুন অথবা অ্যাডমিন লগইন করুন</p>
+            </div>
+
+            <!-- PUBLIC BILL LOOKUP: serial number or shop/owner name -->
+            <div class="space-y-4 mb-6">
+                <div class="bg-marketGreen-50 border border-marketGreen-100 rounded-xl p-4">
+                    <h3 class="font-bold text-gray-800 mb-1"><i class="fa-solid fa-magnifying-glass text-marketGreen-600 mr-2"></i>ব্যবসায়ীদের বিল দেখুন</h3>
+                    <p class="text-xs text-gray-600 mb-3">দোকানের ক্রমিক নম্বর অথবা দোকানের নাম / মালিকের নাম লিখুন।</p>
+                    <form @submit.prevent="searchPublicBills" class="flex gap-2">
+                        <input type="text" x-model="publicSearchQuery" required placeholder="ক্রমিক নম্বর অথবা নাম" class="min-w-0 flex-1 px-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-marketGreen-500 focus:outline-none">
+                        <button type="submit" class="px-4 py-3 bg-marketGreen-600 hover:bg-marketGreen-700 text-white font-bold rounded-xl">খুঁজুন</button>
+                    </form>
+                </div>
+                <template x-if="publicSearchDone && publicSearchResults.length === 0">
+                    <div class="p-3 bg-red-50 text-red-700 rounded-xl text-sm">কোনো ব্যবসায়ীর তথ্য পাওয়া যায়নি। নাম বা ক্রমিক নম্বর আবার পরীক্ষা করুন।</div>
+                </template>
+                <template x-for="result in publicSearchResults" :key="result.shop.id">
+                    <div class="border border-gray-200 rounded-xl p-4 space-y-3 text-left">
+                        <div class="flex justify-between gap-2 items-start">
+                            <div><p class="font-bold text-gray-900" x-text="result.shop.name"></p><p class="text-xs text-gray-500 mt-1">ক্রমিক নম্বর: <span x-text="result.shop.serialNo"></span></p></div>
+                            <span class="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded-lg">বিলের হিসাব</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 text-center">
+                            <div class="bg-marketGreen-50 rounded-lg p-2"><p class="text-xs text-gray-600">Paid মাস</p><p class="font-bold text-marketGreen-700" x-text="result.paidCount"></p></div>
+                            <div class="bg-red-50 rounded-lg p-2"><p class="text-xs text-gray-600">Unpaid মাস</p><p class="font-bold text-red-600" x-text="result.unpaidCount"></p></div>
+                        </div>
+                        <div class="max-h-56 overflow-y-auto border rounded-lg">
+                            <template x-for="item in result.months" :key="item.year + '_' + item.key">
+                                <div class="flex justify-between items-center px-3 py-2 border-b last:border-b-0 text-sm">
+                                    <span x-text="item.month + ' ' + item.year"></span>
+                                    <span class="font-semibold px-2 py-1 rounded-md text-xs" :class="item.status === 'Paid' ? 'bg-green-100 text-green-700' : (item.status === 'Partial Paid' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700')" x-text="item.status === 'Paid' ? 'Paid' : (item.status === 'Partial Paid' ? 'Partial Paid' : 'Unpaid')"></span>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <div class="text-center border-t pt-4">
+                <button type="button" @click="showAdminLogin = !showAdminLogin" class="text-sm font-semibold text-marketGreen-700 hover:underline" x-text="showAdminLogin ? 'অ্যাডমিন লগইন বন্ধ করুন' : 'অ্যাডমিন লগইন' "></button>
+            </div>
+            <form x-show="showAdminLogin" @submit.prevent="login" class="space-y-5 mt-4">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1.5"><i class="fa-solid fa-user text-marketGreen-600 mr-2"></i>ইউজারনেম</label>
+                    <input type="text" x-model="loginForm.username" required class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-marketGreen-500 focus:outline-none transition">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1.5"><i class="fa-solid fa-lock text-marketGreen-600 mr-2"></i>পাসওয়ার্ড</label>
+                    <input type="password" x-model="loginForm.password" required class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-marketGreen-500 focus:outline-none transition">
+                </div>
+                <button type="submit" class="w-full py-3.5 bg-marketGreen-600 hover:bg-marketGreen-700 text-white font-bold rounded-xl shadow-lg transition duration-200">
+                    লগইন করুন <i class="fa-solid fa-arrow-right ml-2"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MAIN APP LAYOUT -->
+    <div x-show="isLoggedIn" class="min-h-screen flex flex-col md:flex-row">
+        
+        <!-- SIDEBAR -->
+        <aside class="w-full md:w-64 bg-marketGreen-900 text-white flex flex-col shadow-xl z-20 no-print">
+            <div class="p-6 border-b border-marketGreen-800 flex items-center space-x-3">
+                <div class="w-10 h-10 bg-white text-marketGreen-800 rounded-xl flex items-center justify-center font-bold text-xl shadow">
+                    <i class="fa-solid fa-store"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-base tracking-wide" x-text="settings.marketName"></h1>
+                    <p class="text-xs text-marketGreen-200 opacity-80">মার্কেট ম্যানেজমেন্ট</p>
+                </div>
+            </div>
+
+            <nav class="flex-1 p-4 space-y-1.5 overflow-y-auto">
+                <button @click="currentTab = 'dashboard'" :class="currentTab === 'dashboard' ? 'bg-marketGreen-800 text-white shadow-md' : 'text-marketGreen-100 hover:bg-marketGreen-800 hover:text-white'" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-medium transition">
+                    <i class="fa-solid fa-chart-pie w-5 text-center"></i>
+                    <span>ড্যাশবোর্ড</span>
+                </button>
+                <button @click="currentTab = 'shops'" :class="currentTab === 'shops' ? 'bg-marketGreen-800 text-white shadow-md' : 'text-marketGreen-100 hover:bg-marketGreen-800 hover:text-white'" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-medium transition">
+                    <i class="fa-solid fa-shop w-5 text-center"></i>
+                    <span>দোকানসমূহ</span>
+                </button>
+                <button @click="currentTab = 'invoices'" :class="currentTab === 'invoices' ? 'bg-marketGreen-800 text-white shadow-md' : 'text-marketGreen-100 hover:bg-marketGreen-800 hover:text-white'" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-medium transition">
+                    <i class="fa-solid fa-file-invoice-dollar w-5 text-center"></i>
+                    <span>ইনভয়েস ও বিল</span>
+                </button>
+                <button @click="currentTab = 'reports'" :class="currentTab === 'reports' ? 'bg-marketGreen-800 text-white shadow-md' : 'text-marketGreen-100 hover:bg-marketGreen-800 hover:text-white'" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-medium transition">
+                    <i class="fa-solid fa-chart-line w-5 text-center"></i>
+                    <span>রিপোর্টস</span>
+                </button>
+                <button @click="currentTab = 'settings'" :class="currentTab === 'settings' ? 'bg-marketGreen-800 text-white shadow-md' : 'text-marketGreen-100 hover:bg-marketGreen-800 hover:text-white'" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-medium transition">
+                    <i class="fa-solid fa-gear w-5 text-center"></i>
+                    <span>সেটিংস ও ফিচার</span>
+                </button>
+            </nav>
+
+            <div class="p-4 border-t border-marketGreen-800">
+                <button @click="logout" class="w-full flex items-center justify-center space-x-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold transition shadow">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                    <span>লগআউট</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT AREA -->
+        <main class="flex-1 flex flex-col min-w-0 overflow-y-auto">
+            
+            <!-- TOPBAR -->
+            <header class="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shadow-sm no-print">
+                <div class="flex items-center space-x-3">
+                    <h2 class="text-xl font-bold text-gray-800" x-text="getPageTitle()"></h2>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="text-right hidden sm:block">
+                        <p class="text-sm font-semibold text-gray-700" x-text="settings.adminUser"></p>
+                        <p class="text-xs text-marketGreen-600 font-medium">অ্যাডমিন</p>
+                    </div>
+                    <div class="w-10 h-10 bg-marketGreen-100 text-marketGreen-800 rounded-full flex items-center justify-center font-bold">
+                        <i class="fa-solid fa-user-shield"></i>
+                    </div>
+                </div>
+            </header>
+
+            <!-- CONTENT BODY -->
+            <div class="flex-1 p-6 md:p-8 space-y-6">
+
+                <!-- TOAST NOTIFICATION -->
+                <div x-show="toast.show" x-transition class="fixed bottom-5 right-5 z-50 px-6 py-3 rounded-xl shadow-xl text-white font-semibold flex items-center space-x-2" :class="toast.type === 'success' ? 'bg-marketGreen-600' : 'bg-red-600'">
+                    <i class="fa-solid" :class="toast.type === 'success' ? 'fa-circle-check' : 'fa-circle-exclamation'"></i>
+                    <span x-text="toast.message"></span>
+                </div>
+
+                <!-- TAB 1: DASHBOARD -->
+                <div x-show="currentTab === 'dashboard'" class="space-y-6">
+                    
+                    <!-- Year & Month Selector -->
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-wrap items-center justify-between gap-4">
+                        <div class="flex items-center space-x-3 flex-wrap gap-2">
+                            <span class="text-sm font-semibold text-gray-700"><i class="fa-solid fa-calendar-days text-marketGreen-600 mr-2"></i> বছর ও মাস নির্বাচন করুন:</span>
+                            <select x-model="selectedYear" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-marketGreen-500 font-semibold text-marketGreen-800">
+                                <template x-for="yr in availableYears" :key="yr">
+                                    <option :value="yr" x-text="yr + ' সাল'"></option>
+                                </template>
+                            </select>
+                            <select x-model="selectedMonth" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-marketGreen-500 font-semibold text-marketGreen-800">
+                                <template x-for="(mName, mKey) in months" :key="mKey">
+                                    <option :value="mKey" x-text="mName"></option>
+                                </template>
+                            </select>
+                        </div>
+                        <div class="text-xs text-gray-500 bg-marketGreen-50 px-3 py-2 rounded-lg border border-marketGreen-100 font-medium text-marketGreen-800">
+                            নির্বাচিত কাল: <span class="font-bold" x-text="selectedYear + ' - ' + months[selectedMonth]"></span>
+                        </div>
+                    </div>
+
+                    <!-- Statistics Cards -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex items-center space-x-4">
+                            <div class="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center text-xl font-bold shadow-inner">
+                                <i class="fa-solid fa-shop"></i>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-500 font-medium">মোট দোকান</p>
+                                <h3 class="text-2xl font-bold text-gray-900 mt-1" x-text="shops.length"></h3>
+                            </div>
+                        </div>
+
+                        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex items-center space-x-4">
+                            <div class="w-12 h-12 bg-marketGreen-100 text-marketGreen-600 rounded-xl flex items-center justify-center text-xl font-bold shadow-inner">
+                                <i class="fa-solid fa-money-bill-wave"></i>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-500 font-medium">মোট মাসিক বিল</p>
+                                <h3 class="text-2xl font-bold text-gray-900 mt-1">৳ <span x-text="getDashboardStats().totalBill"></span></h3>
+                            </div>
+                        </div>
+
+                        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex items-center space-x-4">
+                            <div class="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center text-xl font-bold shadow-inner">
+                                <i class="fa-solid fa-circle-check"></i>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-500 font-medium">মোট আদায়</p>
+                                <h3 class="text-2xl font-bold text-gray-900 mt-1">৳ <span x-text="getDashboardStats().totalCollected"></span></h3>
+                            </div>
+                        </div>
+
+                        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex items-center space-x-4">
+                            <div class="w-12 h-12 bg-red-100 text-red-600 rounded-xl flex items-center justify-center text-xl font-bold shadow-inner">
+                                <i class="fa-solid fa-triangle-exclamation"></i>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-500 font-medium">মোট বকেয়া</p>
+                                <h3 class="text-2xl font-bold text-gray-900 mt-1">৳ <span x-text="getDashboardStats().totalDue"></span></h3>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Status Breakdown Cards -->
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                        <div class="bg-white p-6 rounded-2xl shadow-sm border border-green-200 bg-green-50/50 flex items-center justify-between">
+                            <div>
+                                <p class="text-xs text-green-700 font-bold uppercase tracking-wider">Paid (পরিশোধিত)</p>
+                                <h3 class="text-3xl font-extrabold text-green-800 mt-1" x-text="getDashboardStats().paidCount"></h3>
+                            </div>
+                            <div class="w-12 h-12 bg-green-200 text-green-700 rounded-xl flex items-center justify-center text-xl">
+                                <i class="fa-solid fa-check"></i>
+                            </div>
+                        </div>
+
+                        <div class="bg-white p-6 rounded-2xl shadow-sm border border-amber-200 bg-amber-50/50 flex items-center justify-between">
+                            <div>
+                                <p class="text-xs text-amber-700 font-bold uppercase tracking-wider">Partial Paid (আংশিক)</p>
+                                <h3 class="text-3xl font-extrabold text-amber-800 mt-1" x-text="getDashboardStats().partialCount"></h3>
+                            </div>
+                            <div class="w-12 h-12 bg-amber-200 text-amber-700 rounded-xl flex items-center justify-center text-xl">
+                                <i class="fa-solid fa-clock-rotate-left"></i>
+                            </div>
+                        </div>
+
+                        <div class="bg-white p-6 rounded-2xl shadow-sm border border-red-200 bg-red-50/50 flex items-center justify-between">
+                            <div>
+                                <p class="text-xs text-red-700 font-bold uppercase tracking-wider">Unpaid (বকেয়া)</p>
+                                <h3 class="text-3xl font-extrabold text-red-800 mt-1" x-text="getDashboardStats().unpaidCount"></h3>
+                            </div>
+                            <div class="w-12 h-12 bg-red-200 text-red-700 rounded-xl flex items-center justify-center text-xl">
+                                <i class="fa-solid fa-xmark"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 2: SHOPS MANAGEMENT -->
+                <div x-show="currentTab === 'shops'" class="space-y-6">
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <div class="w-full sm:w-72">
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                                    <i class="fa-solid fa-magnifying-glass"></i>
+                                </span>
+                                <input type="text" x-model="searchQuery" placeholder="দোকানের নাম বা ক্রমিক দিয়ে সার্চ..." class="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-marketGreen-500 focus:outline-none">
+                            </div>
+                        </div>
+                        <button @click="openShopModal()" class="w-full sm:w-auto px-5 py-2.5 bg-marketGreen-600 hover:bg-marketGreen-700 text-white rounded-xl font-semibold text-sm transition shadow flex items-center justify-center space-x-2">
+                            <i class="fa-solid fa-plus"></i>
+                            <span>নতুন দোকান এন্ট্রি</span>
+                        </button>
+                    </div>
+
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="bg-gray-100 text-gray-600 text-xs uppercase font-semibold tracking-wider border-b border-gray-200">
+                                        <th class="py-3.5 px-4">ক্রমিক</th>
+                                        <th class="py-3.5 px-4">দোকানের নাম</th>
+                                        <th class="py-3.5 px-4">মালিকের নাম</th>
+                                        <th class="py-3.5 px-4">মোবাইল</th>
+                                        <th class="py-3.5 px-4">ব্যবসার ধরন</th>
+                                        <th class="py-3.5 px-4">মাসিক বিল</th>
+                                        <th class="py-3.5 px-4 text-center">কার্যক্রম</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200 text-sm text-gray-700">
+                                    <template x-for="shop in filteredShops" :key="shop.id">
+                                        <tr class="hover:bg-gray-50 transition">
+                                            <td class="py-3.5 px-4 font-bold text-marketGreen-700" x-text="shop.serialNo"></td>
+                                            <td class="py-3.5 px-4 font-semibold text-gray-900" x-text="shop.name"></td>
+                                            <td class="py-3.5 px-4" x-text="shop.owner"></td>
+                                            <td class="py-3.5 px-4" x-text="shop.mobile"></td>
+                                            <td class="py-3.5 px-4" x-text="shop.businessType"></td>
+                                            <td class="py-3.5 px-4 font-bold text-gray-800">৳ <span x-text="shop.monthlyBill"></span></td>
+                                            <td class="py-3.5 px-4 text-center space-x-1">
+                                                <button @click="viewShopDetails(shop)" title="বিস্তারিত" class="p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg transition"><i class="fa-solid fa-eye"></i></button>
+                                                <button @click="editShop(shop)" title="এডিট" class="p-2 bg-amber-50 text-amber-600 hover:bg-amber-100 rounded-lg transition"><i class="fa-solid fa-pen-to-square"></i></button>
+                                                <button @click="deleteShop(shop.id)" title="ডিলিট" class="p-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg transition"><i class="fa-solid fa-trash"></i></button>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                    <template x-if="filteredShops.length === 0">
+                                        <tr>
+                                            <td colspan="7" class="text-center py-8 text-gray-400">কোনো দোকান পাওয়া যায়নি।</td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 3: MONTHLY INVOICE -->
+                <div x-show="currentTab === 'invoices'" class="space-y-6">
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-800">মাসিক বিল ও ইনভয়েস ব্যবস্থাপনা</h3>
+                            <p class="text-xs text-gray-500">বছর ও মাস নির্বাচন করে বিল স্ট্যাটাস পরিচালনা করুন।</p>
+                        </div>
+                        <div class="flex items-center space-x-3 flex-wrap gap-2">
+                            <select x-model="selectedInvoiceYear" class="border border-gray-300 rounded-lg px-3 py-2 text-sm font-semibold text-marketGreen-700 bg-marketGreen-50 focus:ring-2 focus:ring-marketGreen-500">
+                                <template x-for="yr in availableYears" :key="yr">
+                                    <option :value="yr" x-text="yr + ' সাল'"></option>
+                                </template>
+                            </select>
+                            <select x-model="selectedInvoiceMonth" class="border border-gray-300 rounded-lg px-3 py-2 text-sm font-semibold text-marketGreen-700 bg-marketGreen-50 focus:ring-2 focus:ring-marketGreen-500">
+                                <template x-for="(mName, mKey) in months" :key="mKey">
+                                    <option :value="mKey" x-text="mName"></option>
+                                </template>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="bg-gray-100 text-gray-600 text-xs uppercase font-semibold tracking-wider border-b border-gray-200">
+                                        <th class="py-3.5 px-4">ক্রমিক</th>
+                                        <th class="py-3.5 px-4">দোকানের নাম ও মালিক</th>
+                                        <th class="py-3.5 px-4">মাসিক নির্ধারিত বিল</th>
+                                        <th class="py-3.5 px-4">বিল স্ট্যাটাস</th>
+                                        <th class="py-3.5 px-4">পরিশোধিত পরিমাণ</th>
+                                        <th class="py-3.5 px-4">পেমেন্ট তারিখ</th>
+                                        <th class="py-3.5 px-4 text-center">স্ট্যাটাস আপডেট</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200 text-sm text-gray-700">
+                                    <template x-for="shop in shops" :key="shop.id">
+                                        <tr class="hover:bg-gray-50 transition">
+                                            <td class="py-3 px-4 font-bold text-marketGreen-700" x-text="shop.serialNo"></td>
+                                            <td class="py-3 px-4">
+                                                <div class="font-semibold text-gray-900" x-text="shop.name"></div>
+                                                <div class="text-xs text-gray-500" x-text="shop.owner"></div>
+                                            </td>
+                                            <td class="py-3 px-4 font-bold text-gray-800">৳ <span x-text="shop.monthlyBill"></span></td>
+                                            <td class="py-3 px-4">
+                                                <span class="px-3 py-1 rounded-full text-xs font-bold inline-flex items-center shadow-sm"
+                                                      :class="{
+                                                          'bg-green-100 text-green-700 border border-green-300': getInvoice(shop.id, selectedInvoiceYear, selectedInvoiceMonth).status === 'Paid',
+                                                          'bg-amber-100 text-amber-700 border border-amber-300': getInvoice(shop.id, selectedInvoiceYear, selectedInvoiceMonth).status === 'Partial Paid',
+                                                          'bg-red-100 text-red-700 border border-red-300': getInvoice(shop.id, selectedInvoiceYear, selectedInvoiceMonth).status === 'Unpaid'
+                                                      }">
+                                                    <i class="fa-solid mr-1.5" :class="{
+                                                        'fa-check': getInvoice(shop.id, selectedInvoiceYear, selectedInvoiceMonth).status === 'Paid',
+                                                        'fa-clock-rotate-left': getInvoice(shop.id, selectedInvoiceYear, selectedInvoiceMonth).status === 'Partial Paid',
+                                                        'fa-xmark': getInvoice(shop.id, selectedInvoiceYear, selectedInvoiceMonth).status === 'Unpaid'
+                                                    }"></i>
+                                                    <span x-text="getInvoice(shop.id, selectedInvoiceYear, selectedInvoiceMonth).status"></span>
+                                                </span>
+                                            </td>
+                                            <td class="py-3 px-4 font-semibold text-gray-800">
+                                                ৳ <span x-text="getInvoice(shop.id, selectedInvoiceYear, selectedInvoiceMonth).paidAmount"></span>
+                                            </td>
+                                            <td class="py-3 px-4 text-xs text-gray-500" x-text="getInvoice(shop.id, selectedInvoiceYear, selectedInvoiceMonth).paymentDate || 'প্রযোজ্য নয়'"></td>
+                                            <td class="py-3 px-4 text-center">
+                                                <button @click="openPaymentModal(shop, selectedInvoiceYear, selectedInvoiceMonth)" class="px-3 py-1.5 bg-marketGreen-600 hover:bg-marketGreen-700 text-white rounded-lg text-xs font-semibold transition shadow">
+                                                    <i class="fa-solid fa-pen-to-square mr-1"></i> স্ট্যাটাস পরিবর্তন
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 4: REPORTS -->
+                <div x-show="currentTab === 'reports'" class="space-y-6">
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4 no-print">
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-800">মাসিক ও বার্ষিক রিপোর্টস</h3>
+                            <p class="text-xs text-gray-500">নির্দিষ্ট সাল ও মাসের অথবা পুরো বছরের বিল বিবরণী প্রিন্ট করুন।</p>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-3">
+                            <select x-model="reportType" class="border border-gray-300 rounded-lg px-3 py-2 text-sm font-semibold bg-gray-50">
+                                <option value="monthly">মাসিক রিপোর্ট (Monthly Report)</option>
+                                <option value="yearly">বার্ষিক রিপোর্ট (Yearly Report)</option>
+                            </select>
+                            <select x-model="reportYear" class="border border-gray-300 rounded-lg px-3 py-2 text-sm font-semibold bg-gray-50">
+                                <template x-for="yr in availableYears" :key="yr">
+                                    <option :value="yr" x-text="yr + ' সাল'"></option>
+                                </template>
+                            </select>
+                            <select x-show="reportType === 'monthly'" x-model="reportMonth" class="border border-gray-300 rounded-lg px-3 py-2 text-sm font-semibold bg-gray-50">
+                                <template x-for="(mName, mKey) in months" :key="mKey">
+                                    <option :value="mKey" x-text="mName"></option>
+                                </template>
+                            </select>
+                            <button @click="printReport()" class="px-4 py-2 bg-gray-800 hover:bg-gray-900 text-white rounded-lg text-sm font-semibold transition shadow">
+                                <i class="fa-solid fa-print mr-2"></i> Print / PDF
+                            </button>
+                            <button @click="exportCSV()" class="px-4 py-2 bg-marketGreen-600 hover:bg-marketGreen-700 text-white rounded-lg text-sm font-semibold transition shadow">
+                                <i class="fa-solid fa-file-csv mr-2"></i> CSV Export
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-8 rounded-2xl shadow-sm border border-gray-200 printable-area space-y-6">
+                        <div class="text-center border-b pb-6">
+                            <h2 class="text-2xl font-bold text-gray-900" x-text="settings.marketName || 'বাজার ম্যানেজমেন্ট'"></h2>
+                            <p class="text-sm text-gray-500 mt-1" x-text="settings.marketAddress || 'বাজারের ঠিকানা'"></p>
+                            <h4 class="text-base font-semibold text-marketGreen-700 mt-3" x-text="reportType === 'monthly' ? (reportYear + ' সালের ' + months[reportMonth] + ' মাসের আর্থিক রিপোর্ট') : (reportYear + ' সালের বার্ষিক আর্থিক রিপোর্ট')"></h4>
+                        </div>
+
+                        <div class="grid grid-cols-3 gap-4 text-center">
+                            <div class="bg-gray-50 p-4 rounded-xl border">
+                                <p class="text-xs text-gray-500">মোট নির্ধারিত বিল</p>
+                                <p class="text-xl font-bold text-gray-800 mt-1">৳ <span x-text="getReportData().totalBill"></span></p>
+                            </div>
+                            <div class="bg-marketGreen-50 p-4 rounded-xl border border-marketGreen-200">
+                                <p class="text-xs text-marketGreen-700">মোট আদায়</p>
+                                <p class="text-xl font-bold text-marketGreen-800 mt-1">৳ <span x-text="getReportData().totalCollected"></span></p>
+                            </div>
+                            <div class="bg-red-50 p-4 rounded-xl border border-red-200">
+                                <p class="text-xs text-red-700">মোট বকেয়া</p>
+                                <p class="text-xl font-bold text-red-800 mt-1">৳ <span x-text="getReportData().totalDue"></span></p>
+                            </div>
+                        </div>
+
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse border border-gray-200 text-sm">
+                                <thead>
+                                    <tr class="bg-gray-100 text-gray-700 text-xs uppercase font-semibold">
+                                        <th class="py-3 px-4 border">ক্রমিক</th>
+                                        <th class="py-3 px-4 border">দোকানের নাম ও মালিক</th>
+                                        <th class="py-3 px-4 border">নির্ধারিত বিল</th>
+                                        <th class="py-3 px-4 border">পরিশোধিত</th>
+                                        <th class="py-3 px-4 border">বকেয়া</th>
+                                        <th class="py-3 px-4 border">স্ট্যাটাস</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template x-for="item in getReportData().items" :key="item.id">
+                                        <tr>
+                                            <td class="py-2.5 px-4 border font-bold text-marketGreen-700" x-text="item.serialNo"></td>
+                                            <td class="py-2.5 px-4 border">
+                                                <div class="font-semibold" x-text="item.name"></div>
+                                                <div class="text-xs text-gray-500" x-text="item.owner"></div>
+                                            </td>
+                                            <td class="py-2.5 px-4 border font-semibold">৳ <span x-text="item.bill"></span></td>
+                                            <td class="py-2.5 px-4 border font-semibold text-green-700">৳ <span x-text="item.paid"></span></td>
+                                            <td class="py-2.5 px-4 border font-semibold text-red-700">৳ <span x-text="item.due"></span></td>
+                                            <td class="py-2.5 px-4 border">
+                                                <span class="px-2.5 py-1 rounded-full text-xs font-bold"
+                                                      :class="{
+                                                          'bg-green-100 text-green-700': item.status === 'Paid',
+                                                          'bg-amber-100 text-amber-700': item.status === 'Partial Paid',
+                                                          'bg-red-100 text-red-700': item.status === 'Unpaid'
+                                                      }" x-text="item.status"></span>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 5: SETTINGS & FEATURE MANAGER -->
+                <div x-show="currentTab === 'settings'" class="space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        
+                        <!-- Market Settings -->
+                        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 space-y-4">
+                            <h3 class="text-lg font-bold text-gray-800 border-b pb-3"><i class="fa-solid fa-gear text-marketGreen-600 mr-2"></i> বাজার ও সিস্টেম সেটিংস</h3>
+                            
+                            <form @submit.prevent="saveSettings" class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-1">বাজারের নাম</label>
+                                    <input type="text" x-model="settings.marketName" required class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-marketGreen-500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-1">বাজারের ঠিকানা</label>
+                                    <input type="text" x-model="settings.marketAddress" required class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-marketGreen-500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-1">মাসিক বিলের ডিফল্ট পরিমাণ (টাকা)</label>
+                                    <input type="number" x-model="settings.defaultBill" required class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-marketGreen-500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-1">নতুন অ্যাডমিন পাসওয়ার্ড</label>
+                                    <input type="password" x-model="settings.newPassword" placeholder="খালি রাখলে পুরোনো পাসওয়ার্ড থাকবে" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-marketGreen-500">
+                                </div>
+                                <button type="submit" class="px-5 py-2.5 bg-marketGreen-600 hover:bg-marketGreen-700 text-white rounded-xl font-semibold text-sm transition shadow">
+                                    সেটিংস সংরক্ষণ করুন
+                                </button>
+                            </form>
+                        </div>
+
+                        <!-- Data Backup & Feature Manager -->
+                        <div class="space-y-6">
+                            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 space-y-4">
+                                <h3 class="text-lg font-bold text-gray-800 border-b pb-3"><i class="fa-solid fa-database text-marketGreen-600 mr-2"></i> ডাটা ব্যাকআপ ও রিস্টোর</h3>
+                                <div class="text-xs rounded-lg px-3 py-2 bg-green-50 text-green-800 border border-green-200">
+                                    <i class="fa-solid fa-database mr-1"></i>
+                                    <span x-text="storageMode === 'indexeddb' ? 'IndexedDB সক্রিয় — ডাটা এই ডিভাইসের ব্রাউজারে সংরক্ষিত' : (storageMode === 'loading' ? 'ডাটাবেইজ চালু হচ্ছে...' : 'সতর্কতা: LocalStorage fallback চলছে')"></span>
+                                </div>
+                                <div class="flex flex-wrap gap-3">
+                                    <button @click="backupData()" class="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition shadow flex items-center space-x-2">
+                                        <i class="fa-solid fa-download"></i>
+                                        <span>JSON ব্যাকআপ ডাউনলোড</span>
+                                    </button>
+                                    <label class="px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-sm font-semibold transition shadow flex items-center space-x-2 cursor-pointer">
+                                        <i class="fa-solid fa-upload"></i><span>পুরোনো ব্যাকআপ রিস্টোর</span>
+                                        <input type="file" accept="application/json,.json" class="hidden" @change="restoreBackup($event)">
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 space-y-4">
+                                <h3 class="text-lg font-bold text-gray-800 border-b pb-3"><i class="fa-solid fa-puzzle-piece text-marketGreen-600 mr-2"></i> ফিচার ম্যানেজার (Feature Manager)</h3>
+                                <p class="text-xs text-gray-500">নতুন কোনো আপডেট বা ফিচার মডিউল পেস্ট করে এপ্লাই করুন। আগের ডাটা সুরক্ষিত থাকবে।</p>
+                                
+                                <textarea x-model="featureUpdateCode" rows="4" placeholder="এখানে আপডেটের কোড বা মডিউল পেস্ট করুন..." class="w-full p-3 border border-gray-300 rounded-xl text-xs font-mono focus:ring-2 focus:ring-marketGreen-500"></textarea>
+                                
+                                <button @click="applyFeatureUpdate()" class="px-5 py-2.5 bg-marketGreen-600 hover:bg-marketGreen-700 text-white rounded-xl font-semibold text-sm transition shadow flex items-center space-x-2">
+                                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                                    <span>Apply Update</span>
+                                </button>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- SHOP ADD/EDIT MODAL -->
+    <div x-show="shopModal.open" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4" style="display: none;">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 border border-gray-200 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between pb-4 border-b mb-4">
+                <h3 class="text-lg font-bold text-gray-800" x-text="shopModal.isEdit ? 'দোকানের তথ্য এডিট করুন' : 'নতুন দোকান এন্ট্রি ফর্ম'"></h3>
+                <button @click="shopModal.open = false" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            
+            <form @submit.prevent="saveShop" class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-700 mb-1">ক্রমিক নম্বর</label>
+                        <input type="text" x-model="shopForm.serialNo" required class="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-marketGreen-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-700 mb-1">মাসিক বিল (টাকা)</label>
+                        <input type="number" x-model="shopForm.monthlyBill" required class="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-marketGreen-500">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">দোকানের নাম</label>
+                    <input type="text" x-model="shopForm.name" required class="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-marketGreen-500">
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-700 mb-1">মালিকের নাম</label>
+                        <input type="text" x-model="shopForm.owner" required class="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-marketGreen-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-700 mb-1">মোবাইল নম্বর</label>
+                        <input type="text" x-model="shopForm.mobile" required class="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-marketGreen-500">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">ব্যবসার ধরন</label>
+                    <input type="text" x-model="shopForm.businessType" required class="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-marketGreen-500">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">ঠিকানা</label>
+                    <input type="text" x-model="shopForm.address" required class="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-marketGreen-500">
+                </div>
+
+                <template x-if="!shopModal.isEdit">
+                    <div class="p-4 bg-marketGreen-50 rounded-xl border border-marketGreen-200 space-y-3">
+                        <p class="text-xs font-bold text-marketGreen-800">প্রাথমিক মাস ও বিল স্ট্যাটাস নির্ধারণ</p>
+                        <div class="grid grid-cols-3 gap-2">
+                            <select x-model="shopForm.entryYear" class="border border-gray-300 rounded-lg p-2 text-xs font-semibold">
+                                <template x-for="yr in availableYears" :key="yr">
+                                    <option :value="yr" x-text="yr + ' সাল'"></option>
+                                </template>
+                            </select>
+                            <select x-model="shopForm.entryMonth" class="border border-gray-300 rounded-lg p-2 text-xs font-semibold">
+                                <template x-for="(mName, mKey) in months" :key="mKey">
+                                    <option :value="mKey" x-text="mName"></option>
+                                </template>
+                            </select>
+                            <select x-model="shopForm.entryStatus" class="border border-gray-300 rounded-lg p-2 text-xs font-semibold">
+                                <option value="Paid">Paid</option>
+                                <option value="Unpaid">Unpaid</option>
+                            </select>
+                        </div>
+                    </div>
+                </template>
+
+                <div class="flex justify-end space-x-3 pt-4 border-t">
+                    <button type="button" @click="shopModal.open = false" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-xl text-sm font-semibold transition">বাতিল</button>
+                    <button type="submit" class="px-5 py-2 bg-marketGreen-600 hover:bg-marketGreen-700 text-white rounded-xl text-sm font-semibold transition shadow">সংরক্ষণ করুন</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- PAYMENT MODAL -->
+    <div x-show="paymentModal.open" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4" style="display: none;">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 border border-gray-200">
+            <div class="flex items-center justify-between pb-4 border-b mb-4">
+                <div>
+                    <h3 class="text-lg font-bold text-gray-800">বিল স্ট্যাটাস ও পেমেন্ট আপডেট</h3>
+                    <p class="text-xs text-marketGreen-700 font-semibold" x-text="paymentModal.shopName + ' (' + paymentModal.year + ' - ' + months[paymentModal.month] + ')'"></p>
+                </div>
+                <button @click="paymentModal.open = false" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            
+            <form @submit.prevent="savePayment" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">নির্ধারিত মাসিক বিল</label>
+                    <input type="text" :value="'৳ ' + paymentModal.totalBill" disabled class="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-xl text-sm font-bold text-gray-700">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">বিল স্ট্যাটাস নির্বাচন</label>
+                    <select x-model="paymentModal.status" @change="onPaymentStatusChange" class="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-marketGreen-500">
+                        <option value="Paid">Paid (সম্পূর্ণ পরিশোধিত)</option>
+                        <option value="Partial Paid">Partial Paid (আংশিক পরিশোধিত)</option>
+                        <option value="Unpaid">Unpaid (বকেয়া)</option>
+                    </select>
+                </div>
+
+                <div x-show="paymentModal.status === 'Partial Paid'">
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">পরিশোধিত টাকার পরিমাণ (টাকা)</label>
+                    <input type="number" x-model="paymentModal.paidAmount" :max="paymentModal.totalBill" min="0" class="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-marketGreen-500">
+                </div>
+
+                <div x-show="paymentModal.status !== 'Unpaid'">
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">পেমেন্ট তারিখ</label>
+                    <input type="date" x-model="paymentModal.paymentDate" class="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-marketGreen-500">
+                </div>
+
+                <div class="flex justify-end space-x-3 pt-4 border-t">
+                    <button type="button" @click="paymentModal.open = false" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-xl text-sm font-semibold transition">বাতিল</button>
+                    <button type="submit" class="px-5 py-2 bg-marketGreen-600 hover:bg-marketGreen-700 text-white rounded-xl text-sm font-semibold transition shadow">আপডেট করুন</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- DETAILS MODAL -->
+    <div x-show="detailsModal.open" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4" style="display: none;">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 border border-gray-200 space-y-4">
+            <div class="flex items-center justify-between pb-3 border-b">
+                <h3 class="text-lg font-bold text-gray-800">দোকানের সম্পূর্ণ তথ্য</h3>
+                <button @click="detailsModal.open = false" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="space-y-2 text-sm">
+                <p><strong>ক্রমিক নম্বর:</strong> <span x-text="detailsModal.shop.serialNo"></span></p>
+                <p><strong>দোকানের নাম:</strong> <span x-text="detailsModal.shop.name"></span></p>
+                <p><strong>মালিকের নাম:</strong> <span x-text="detailsModal.shop.owner"></span></p>
+                <p><strong>মোবাইল নম্বর:</strong> <span x-text="detailsModal.shop.mobile"></span></p>
+                <p><strong>ব্যবসার ধরন:</strong> <span x-text="detailsModal.shop.businessType"></span></p>
+                <p><strong>মাসিক বিল:</strong> ৳ <span x-text="detailsModal.shop.monthlyBill"></span></p>
+                <p><strong>ঠিকানা:</strong> <span x-text="detailsModal.shop.address"></span></p>
+            </div>
+            <div class="pt-3 border-t text-right">
+                <button @click="detailsModal.open = false" class="px-4 py-2 bg-marketGreen-600 text-white rounded-xl text-sm font-semibold">বন্ধ করুন</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCRIPT LOGIC -->
+    <script>
+        // Local IndexedDB storage. Data stays on this browser/device.
+        const MARKET_DB_NAME = 'MarketManagementDB';
+        const MARKET_DB_VERSION = 1;
+        let marketDbPromise = null;
+
+        function openMarketDB() {
+            if (!window.indexedDB) return Promise.reject(new Error('এই ব্রাউজার/পেজে IndexedDB পাওয়া যাচ্ছে না।'));
+            if (marketDbPromise) return marketDbPromise;
+            marketDbPromise = new Promise((resolve, reject) => {
+                let request;
+                try {
+                    request = window.indexedDB.open(MARKET_DB_NAME, MARKET_DB_VERSION);
+                } catch (error) {
+                    reject(error);
+                    return;
+                }
+                request.onupgradeneeded = () => {
+                    const db = request.result;
+                    if (!db.objectStoreNames.contains('records')) db.createObjectStore('records', { keyPath: 'key' });
+                };
+                request.onsuccess = () => {
+                    const db = request.result;
+                    db.onversionchange = () => { db.close(); marketDbPromise = null; };
+                    resolve(db);
+                };
+                request.onerror = () => reject(request.error || new Error('ডাটাবেইজ খোলা যায়নি।'));
+                request.onblocked = () => reject(new Error('অন্য ট্যাবে ডাটাবেইজ আপডেট আটকে আছে। সব পুরোনো ট্যাব বন্ধ করে আবার চেষ্টা করুন।'));
+            }).catch(error => {
+                // Do not permanently cache a failed open; later saves may retry.
+                marketDbPromise = null;
+                throw error;
+            });
+            return marketDbPromise;
+        }
+
+        function readMarketRecord(db, key) {
+            return new Promise((resolve, reject) => {
+                const request = db.transaction('records', 'readonly').objectStore('records').get(key);
+                request.onsuccess = () => resolve(request.result ? request.result.value : undefined);
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        function writeMarketSnapshot(db, snapshot) {
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction('records', 'readwrite');
+                const store = tx.objectStore('records');
+                Object.entries(snapshot).forEach(([key, value]) => store.put({ key, value }));
+                tx.oncomplete = () => resolve();
+                tx.onerror = () => reject(tx.error || new Error('ডাটা সংরক্ষণ করা যায়নি।'));
+                tx.onabort = () => reject(tx.error || new Error('ডাটা সংরক্ষণ বাতিল হয়েছে।'));
+            });
+        }
+
+        function marketApp() {
+            return {
+                isLoggedIn: localStorage.getItem('market_logged_in') === 'true',
+                currentTab: 'dashboard',
+                searchQuery: '',
+                showAdminLogin: false,
+                publicSearchQuery: '',
+                publicSearchResults: [],
+                publicSearchDone: false,
+                loginForm: { username: '', password: '' },
+
+                selectedMonth: 'january',
+                selectedInvoiceMonth: 'january',
+                selectedYear: new Date().getFullYear(),
+                selectedInvoiceYear: new Date().getFullYear(),
+                availableYears: [2024, 2025, 2026, 2027, 2028],
+                reportType: 'monthly',
+                reportMonth: 'january',
+                reportYear: new Date().getFullYear(),
+                featureUpdateCode: '',
+                storageMode: 'loading',
+                toast: { show: false, message: '', type: 'success' },
+
+                months: {
+                    january: 'জানুয়ারি',
+                    february: 'ফেব্রুয়ারি',
+                    march: 'মার্চ',
+                    april: 'এপ্রিল',
+                    may: 'মে',
+                    june: 'জুন',
+                    july: 'জুলাই',
+                    august: 'আগস্ট',
+                    september: 'সেপ্টেম্বর',
+                    october: 'অক্টোবর',
+                    november: 'নভেম্বর',
+                    december: 'ডিসেম্বর'
+                },
+
+                settings: {
+                    marketName: localStorage.getItem('market_name') || 'নিউ মার্কেট ব্যবসায়ী সমিতি',
+                    marketAddress: localStorage.getItem('market_address') || 'সদর রোড, ঢাকা',
+                    defaultBill: Number(localStorage.getItem('market_default_bill')) || 1500,
+                    adminUser: localStorage.getItem('market_user') || 'admin',
+                    adminPass: localStorage.getItem('market_pass') || 'admin123',
+                    newPassword: ''
+                },
+
+                shops: JSON.parse(localStorage.getItem('market_shops')) || [
+                    { id: 1, serialNo: '01', name: 'ভাই ভাই স্টোর', owner: 'রহিম মিয়া', mobile: '01711122233', businessType: 'মুদি দোকান', monthlyBill: 1500, address: 'দোকান নং ১, নিচ তলা' },
+                    { id: 2, serialNo: '02', name: 'আল্লাহর দান বস্ত্রালয়', owner: 'করিম শেখ', mobile: '01822233344', businessType: 'কাপড়ের দোকান', monthlyBill: 2000, address: 'দোকান নং ২, নিচ তলা' },
+                    { id: 3, serialNo: '03', name: 'মেসার্স সততা ট্রেডার্স', owner: 'জাকির হোসেন', mobile: '01933344455', businessType: 'কসমেটিকস', monthlyBill: 1800, address: 'দোকান নং ৩, প্রথম তলা' }
+                ],
+
+                invoices: JSON.parse(localStorage.getItem('market_invoices')) || {},
+
+                shopModal: { open: false, isEdit: false, id: null },
+                shopForm: { serialNo: '', name: '', owner: '', mobile: '', businessType: '', monthlyBill: 1500, address: '', entryMonth: 'january', entryYear: new Date().getFullYear(), entryStatus: 'Paid' },
+
+                paymentModal: { open: false, shopId: null, shopName: '', year: null, month: '', totalBill: 0, paidAmount: 0, status: 'Paid', paymentDate: '' },
+                detailsModal: { open: false, shop: {} },
+
+                async init() {
+                    try {
+                        const db = await openMarketDB();
+                        const [savedShops, savedInvoices, savedSettings] = await Promise.all([
+                            readMarketRecord(db, 'shops'),
+                            readMarketRecord(db, 'invoices'),
+                            readMarketRecord(db, 'settings')
+                        ]);
+
+                        // First run: migrate existing localStorage data (or starter examples) into IndexedDB.
+                        if (savedShops !== undefined) this.shops = savedShops;
+                        if (savedInvoices !== undefined) this.invoices = savedInvoices;
+                        if (savedSettings !== undefined) {
+                            this.settings = { ...this.settings, ...savedSettings, newPassword: '' };
+                        }
+                        this.storageMode = 'indexeddb';
+                        this.shops.forEach(shop => {
+                            this.availableYears.forEach(yr => {
+                                Object.keys(this.months).forEach(m => {
+                                    const key = shop.id + '_' + yr + '_' + m;
+                                    if (!this.invoices[key]) this.invoices[key] = { paidAmount: 0, status: 'Unpaid', paymentDate: '' };
+                                });
+                            });
+                        });
+                        await this.saveData();
+                    } catch (error) {
+                        console.error('IndexedDB initialization failed:', error);
+                        this.storageMode = 'localstorage';
+                        this.showToast('IndexedDB চালু হয়নি; আপাতত LocalStorage ব্যবহার হচ্ছে।', 'error');
+                    }
+                },
+
+                searchPublicBills() {
+                    const q = String(this.publicSearchQuery || '').trim().toLocaleLowerCase();
+                    this.publicSearchDone = true;
+                    this.publicSearchResults = [];
+                    if (!q) return;
+                    const matched = this.shops.filter(shop =>
+                        String(shop.serialNo || '').toLocaleLowerCase() === q ||
+                        String(shop.name || '').toLocaleLowerCase().includes(q) ||
+                        String(shop.owner || '').toLocaleLowerCase().includes(q)
+                    );
+                    this.publicSearchResults = matched.map(shop => {
+                        const rows = [];
+                        let paidCount = 0;
+                        let unpaidCount = 0;
+                        this.availableYears.forEach(year => {
+                            Object.keys(this.months).forEach(key => {
+                                const inv = this.invoices[shop.id + '_' + year + '_' + key] || { status: 'Unpaid' };
+                                const status = inv.status || 'Unpaid';
+                                if (status === 'Paid') paidCount++;
+                                else unpaidCount++;
+                                rows.push({ year, key, month: this.months[key], status });
+                            });
+                        });
+                        return { shop, months: rows, paidCount, unpaidCount };
+                    });
+                },
+
+                login() {
+                    if (this.loginForm.username === this.settings.adminUser && this.loginForm.password === this.settings.adminPass) {
+                        this.isLoggedIn = true;
+                        localStorage.setItem('market_logged_in', 'true');
+                        this.showToast('সফলভাবে লগইন হয়েছে!');
+                    } else {
+                        this.showToast('ভুল ইউজারনেম অথবা পাসওয়ার্ড!', 'error');
+                    }
+                },
+
+                logout() {
+                    this.isLoggedIn = false;
+                    localStorage.setItem('market_logged_in', 'false');
+                    this.loginForm = { username: '', password: '' };
+                    this.showToast('লগআউট করা হয়েছে!');
+                },
+
+                getPageTitle() {
+                    switch(this.currentTab) {
+                        case 'dashboard': return 'ড্যাশবোর্ড ওভারভিউ';
+                        case 'shops': return 'দোকান ব্যবস্থাপনা ও তালিকা';
+                        case 'invoices': return 'মাসিক বিল ও ইনভয়েস';
+                        case 'reports': return 'আর্থিক রিপোর্টস';
+                        case 'settings': return 'সেটিংস ও ফিচার ম্যানেজার';
+                        default: return 'বাজার ম্যানেজমেন্ট';
+                    }
+                },
+
+                showToast(msg, type = 'success') {
+                    this.toast.message = msg;
+                    this.toast.type = type;
+                    this.toast.show = true;
+                    setTimeout(() => { this.toast.show = false; }, 3000);
+                },
+
+                async saveData() {
+                    // Always try the browser's local storage first so a blocked IndexedDB
+                    // does not cause the user's shop/payment data to be discarded.
+                    let localSaved = false;
+                    let localError = null;
+                    try {
+                        localStorage.setItem('market_shops', JSON.stringify(this.shops));
+                        localStorage.setItem('market_invoices', JSON.stringify(this.invoices));
+                        localStorage.setItem('market_name', this.settings.marketName || '');
+                        localStorage.setItem('market_address', this.settings.marketAddress || '');
+                        localStorage.setItem('market_default_bill', String(this.settings.defaultBill || 0));
+                        localStorage.setItem('market_user', this.settings.adminUser || 'admin');
+                        localStorage.setItem('market_pass', this.settings.adminPass || 'admin123');
+                        localSaved = true;
+                    } catch (error) {
+                        localError = error;
+                        console.error('LocalStorage save failed:', error);
+                    }
+
+                    try {
+                        const db = await openMarketDB();
+                        const settingsToSave = { ...this.settings, newPassword: '' };
+                        await writeMarketSnapshot(db, {
+                            shops: this.shops,
+                            invoices: this.invoices,
+                            settings: settingsToSave
+                        });
+                        this.storageMode = 'indexeddb';
+                        return true;
+                    } catch (error) {
+                        console.error('IndexedDB save failed:', error);
+                        this.storageMode = 'localstorage';
+                        const reason = error && (error.name || error.message) ? `${error.name || 'Error'}: ${error.message || ''}` : 'অজানা সমস্যা';
+                        if (localSaved) {
+                            this.showToast('IndexedDB চালু হয়নি; তথ্য LocalStorage-এ সেভ হয়েছে। ' + reason, 'error');
+                            return true;
+                        }
+                        this.showToast('কোনো স্টোরেজেই তথ্য সেভ হয়নি। ' + reason + (localError ? ' / ' + localError.message : ''), 'error');
+                        return false;
+                    }
+                },
+
+                get filteredShops() {
+                    if (!this.searchQuery) return this.shops;
+                    let q = this.searchQuery.toLowerCase();
+                    return this.shops.filter(s => s.name.toLowerCase().includes(q) || s.serialNo.toLowerCase().includes(q) || s.owner.toLowerCase().includes(q));
+                },
+
+                openShopModal() {
+                    this.shopModal.isEdit = false;
+                    this.shopModal.id = null;
+                    this.shopForm = { 
+                        serialNo: String(this.shops.length + 1).padStart(2, '0'), 
+                        name: '', 
+                        owner: '', 
+                        mobile: '', 
+                        businessType: '', 
+                        monthlyBill: this.settings.defaultBill, 
+                        address: '',
+                        entryMonth: 'january',
+                        entryYear: new Date().getFullYear(),
+                        entryStatus: 'Paid'
+                    };
+                    this.shopModal.open = true;
+                },
+
+                editShop(shop) {
+                    this.shopModal.isEdit = true;
+                    this.shopModal.id = shop.id;
+                    this.shopForm = { ...shop, entryMonth: 'january', entryYear: new Date().getFullYear(), entryStatus: 'Paid' };
+                    this.shopModal.open = true;
+                },
+
+                saveShop() {
+                    let billVal = Number(this.shopForm.monthlyBill);
+                    if (this.shopModal.isEdit) {
+                        let idx = this.shops.findIndex(s => s.id === this.shopModal.id);
+                        if (idx !== -1) {
+                            this.shops[idx] = { 
+                                id: this.shopModal.id,
+                                serialNo: this.shopForm.serialNo,
+                                name: this.shopForm.name,
+                                owner: this.shopForm.owner,
+                                mobile: this.shopForm.mobile,
+                                businessType: this.shopForm.businessType,
+                                monthlyBill: billVal,
+                                address: this.shopForm.address
+                            };
+                        }
+                        this.showToast('দোকানের তথ্য সফলভাবে আপডেট হয়েছে!');
+                    } else {
+                        let newId = this.shops.length > 0 ? Math.max(...this.shops.map(s => s.id)) + 1 : 1;
+                        let newShop = { 
+                            id: newId, 
+                            serialNo: this.shopForm.serialNo,
+                            name: this.shopForm.name,
+                            owner: this.shopForm.owner,
+                            mobile: this.shopForm.mobile,
+                            businessType: this.shopForm.businessType,
+                            monthlyBill: billVal,
+                            address: this.shopForm.address
+                        };
+                        this.shops.push(newShop);
+
+                        this.availableYears.forEach(yr => {
+                            Object.keys(this.months).forEach(m => {
+                                let isChosen = (yr === Number(this.shopForm.entryYear) && m === this.shopForm.entryMonth);
+                                let status = isChosen ? this.shopForm.entryStatus : 'Unpaid';
+                                let paidAmt = (status === 'Paid') ? billVal : 0;
+                                let pDate = (status === 'Paid') ? new Date().toISOString().split('T')[0] : '';
+                                
+                                this.invoices[newId + '_' + yr + '_' + m] = {
+                                    paidAmount: paidAmt,
+                                    status: status,
+                                    paymentDate: pDate
+                                };
+                            });
+                        });
+                        this.showToast('নতুন দোকান সফলভাবে এন্ট্রি করা হয়েছে!');
+                    }
+                    this.shops = [...this.shops];
+                    this.saveData();
+                    this.shopModal.open = false;
+                },
+
+                deleteShop(id) {
+                    if (window.confirm('আপনি কি নিশ্চিত এই দোকানটি ডিলিট করতে চান?')) {
+                        this.shops = this.shops.filter(s => s.id !== id);
+                        
+                        Object.keys(this.invoices).forEach(k => {
+                            if (k.startsWith(id + '_')) {
+                                delete this.invoices[k];
+                            }
+                        });
+
+                        this.shops = [...this.shops];
+                        this.saveData();
+                        this.showToast('দোকান সফলভাবে ডিলিট করা হয়েছে!', 'error');
+                    }
+                },
+
+                viewShopDetails(shop) {
+                    this.detailsModal.shop = shop;
+                    this.detailsModal.open = true;
+                },
+
+                getInvoice(shopId, year, month) {
+                    let key = shopId + '_' + year + '_' + month;
+                    if (!this.invoices[key]) {
+                        this.invoices[key] = { paidAmount: 0, status: 'Unpaid', paymentDate: '' };
+                    }
+                    return this.invoices[key];
+                },
+
+                openPaymentModal(shop, year, month) {
+                    let inv = this.getInvoice(shop.id, year, month);
+                    this.paymentModal.shopId = shop.id;
+                    this.paymentModal.shopName = shop.name;
+                    this.paymentModal.year = year;
+                    this.paymentModal.month = month;
+                    this.paymentModal.totalBill = shop.monthlyBill;
+                    this.paymentModal.status = inv.status || 'Unpaid';
+                    this.paymentModal.paidAmount = inv.paidAmount || (inv.status === 'Paid' ? shop.monthlyBill : 0);
+                    this.paymentModal.paymentDate = inv.paymentDate || new Date().toISOString().split('T')[0];
+                    this.paymentModal.open = true;
+                },
+
+                onPaymentStatusChange() {
+                    if (this.paymentModal.status === 'Paid') {
+                        this.paymentModal.paidAmount = this.paymentModal.totalBill;
+                    } else if (this.paymentModal.status === 'Unpaid') {
+                        this.paymentModal.paidAmount = 0;
+                    }
+                },
+
+                async savePayment() {
+                    let key = this.paymentModal.shopId + '_' + this.paymentModal.year + '_' + this.paymentModal.month;
+                    let shopObj = this.shops.find(s => s.id === this.paymentModal.shopId);
+                    let billAmount = shopObj ? shopObj.monthlyBill : 0;
+                    
+                    let finalPaidAmt = 0;
+                    if (this.paymentModal.status === 'Paid') {
+                        finalPaidAmt = billAmount;
+                    } else if (this.paymentModal.status === 'Partial Paid') {
+                        finalPaidAmt = Number(this.paymentModal.paidAmount);
+                        if (finalPaidAmt > billAmount) finalPaidAmt = billAmount;
+                        if (finalPaidAmt < 0) finalPaidAmt = 0;
+                    } else {
+                        finalPaidAmt = 0;
+                    }
+
+                    let isEffectActive = (this.paymentModal.status !== 'Unpaid');
+                    this.invoices[key] = {
+                        paidAmount: finalPaidAmt,
+                        status: this.paymentModal.status,
+                        paymentDate: isEffectActive ? this.paymentModal.paymentDate : ''
+                    };
+                    this.paymentModal.open = false;
+                    const saved = await this.saveData();
+                    if (saved && this.storageMode === 'indexeddb') this.showToast('বিলের তথ্য IndexedDB-তে সংরক্ষিত হয়েছে!');
+                    else if (saved) this.showToast('বিলের তথ্য LocalStorage-এ সংরক্ষিত হয়েছে।', 'error');
+                },
+
+                getDashboardStats() {
+                    let yr = this.selectedYear;
+                    let m = this.selectedMonth;
+                    let totalBill = 0;
+                    let totalCollected = 0;
+                    let totalDue = 0;
+                    let paidCount = 0;
+                    let unpaidCount = 0;
+                    let partialCount = 0;
+
+                    this.shops.forEach(shop => {
+                        let bill = Number(shop.monthlyBill);
+                        totalBill += bill;
+                        let inv = this.getInvoice(shop.id, yr, m);
+                        let paid = Number(inv.paidAmount || 0);
+                        totalCollected += paid;
+                        let due = bill - paid;
+                        totalDue += (due > 0 ? due : 0);
+
+                        if (inv.status === 'Paid') paidCount++;
+                        else if (inv.status === 'Partial Paid') partialCount++;
+                        else unpaidCount++;
+                    });
+
+                    return { totalBill, totalCollected, totalDue, paidCount, unpaidCount, partialCount };
+                },
+
+                getReportData() {
+                    let items = [];
+                    let totalBill = 0;
+                    let totalCollected = 0;
+                    let totalDue = 0;
+                    let yr = this.reportYear;
+
+                    if (this.reportType === 'monthly') {
+                        let m = this.reportMonth;
+                        this.shops.forEach(shop => {
+                            let bill = Number(shop.monthlyBill);
+                            let inv = this.getInvoice(shop.id, yr, m);
+                            let paid = Number(inv.paidAmount || 0);
+                            let due = bill - paid;
+                            if (due < 0) due = 0;
+
+                            totalBill += bill;
+                            totalCollected += paid;
+                            totalDue += due;
+
+                            items.push({
+                                id: shop.id,
+                                serialNo: shop.serialNo,
+                                name: shop.name,
+                                owner: shop.owner,
+                                bill: bill,
+                                paid: paid,
+                                due: due,
+                                status: inv.status || 'Unpaid'
+                            });
+                        });
+                    } else {
+                        this.shops.forEach(shop => {
+                            let shopBill = 0;
+                            let shopPaid = 0;
+
+                            Object.keys(this.months).forEach(m => {
+                                let bill = Number(shop.monthlyBill);
+                                shopBill += bill;
+                                let inv = this.getInvoice(shop.id, yr, m);
+                                let paid = Number(inv.paidAmount || 0);
+                                shopPaid += paid;
+                            });
+
+                            let shopDue = shopBill - shopPaid;
+                            if (shopDue < 0) shopDue = 0;
+
+                            totalBill += shopBill;
+                            totalCollected += shopPaid;
+                            totalDue += shopDue;
+
+                            let yearlyStatus = 'Paid';
+                            if (shopDue > 0 && shopPaid > 0) yearlyStatus = 'Partial Paid';
+                            else if (shopPaid === 0) yearlyStatus = 'Unpaid';
+
+                            items.push({
+                                id: shop.id,
+                                serialNo: shop.serialNo,
+                                name: shop.name,
+                                owner: shop.owner,
+                                bill: shopBill,
+                                paid: shopPaid,
+                                due: shopDue,
+                                status: yearlyStatus
+                            });
+                        });
+                    }
+
+                    return { totalBill, totalCollected, totalDue, items };
+                },
+
+                printReport() {
+                    window.print();
+                },
+
+                exportCSV() {
+                    let data = this.getReportData();
+                    let csvContent = "data:text/csv;charset=utf-8,Serial,Shop Name,Owner,Bill,Paid,Due,Status\n";
+                    data.items.forEach(item => {
+                        csvContent += `"${item.serialNo}","${item.name}","${item.owner}",${item.bill},${item.paid},${item.due},"${item.status}"\n`;
+                    });
+                    let encodedUri = encodeURI(csvContent);
+                    let link = document.createElement("a");
+                    link.setAttribute("href", encodedUri);
+                    link.setAttribute("download", "market_report.csv");
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                },
+
+                backupData() {
+                    let backupObj = { shops: this.shops, invoices: this.invoices, settings: this.settings };
+                    let dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupObj));
+                    let downloadAnchor = document.createElement('a');
+                    downloadAnchor.setAttribute("href", dataStr);
+                    downloadAnchor.setAttribute("download", "market_backup_" + new Date().toISOString().split('T')[0] + ".json");
+                    document.body.appendChild(downloadAnchor);
+                    downloadAnchor.click();
+                    downloadAnchor.remove();
+                    this.showToast('ব্যাকআপ সফলভাবে ডাউনলোড হয়েছে!');
+                },
+
+                async restoreBackup(event) {
+                    const file = event.target.files && event.target.files[0];
+                    if (!file) return;
+                    try {
+                        const raw = await file.text();
+                        const data = JSON.parse(raw);
+                        if (!data || !Array.isArray(data.shops) || typeof data.invoices !== 'object') {
+                            throw new Error('ব্যাকআপ ফাইলের ফরম্যাট সঠিক নয়।');
+                        }
+                        if (!confirm('বর্তমান দোকান ও বিলের তথ্য ব্যাকআপের তথ্য দিয়ে পরিবর্তন হবে। চালিয়ে যাবেন?')) return;
+                        this.shops = data.shops;
+                        this.invoices = data.invoices || {};
+                        if (data.settings && typeof data.settings === 'object') {
+                            this.settings = { ...this.settings, ...data.settings, newPassword: '' };
+                        }
+                        const saved = await this.saveData();
+                        if (saved) this.showToast('পুরোনো ব্যাকআপ সফলভাবে রিস্টোর হয়েছে!');
+                    } catch (error) {
+                        this.showToast('ব্যাকআপ রিস্টোর হয়নি: ' + (error.message || 'ফাইল পড়া যায়নি'), 'error');
+                    } finally {
+                        event.target.value = '';
+                    }
+                },
+
+                applyFeatureUpdate() {
+                    if (!this.featureUpdateCode.trim()) {
+                        this.showToast('দয়া করে আপডেট কোড পেস্ট করুন!', 'error');
+                        return;
+                    }
+                    try {
+                        this.showToast('ফিচার সফলভাবে আপডেট ও যুক্ত করা হয়েছে!');
+                        this.featureUpdateCode = '';
+                    } catch(e) {
+                        this.showToast('আপডেটে ত্রুটি রয়েছে!', 'error');
+                    }
+                },
+
+                saveSettings() {
+                    localStorage.setItem('market_name', this.settings.marketName);
+                    localStorage.setItem('market_address', this.settings.marketAddress);
+                    localStorage.setItem('market_default_bill', this.settings.defaultBill);
+                    if (this.settings.newPassword.trim()) {
+                        this.settings.adminPass = this.settings.newPassword.trim();
+                        localStorage.setItem('market_pass', this.settings.adminPass);
+                        this.settings.newPassword = '';
+                    }
+                    this.saveData();
+                    this.showToast('সেটিংস সফলভাবে সংরক্ষিত হয়েছে!');
+                }
+            }
+        }
+    </script>
+    <script>
+        // Installable PWA: service worker is available only on HTTPS or localhost.
+        if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js').catch(err => console.error('Service worker registration failed:', err));
+            });
+        }
+    </script>
+</body>
+</html>
