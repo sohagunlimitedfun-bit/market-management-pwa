@@ -389,26 +389,26 @@
                                                 <div class="font-semibold text-gray-900" x-text="shop.name"></div>
                                                 <div class="text-xs text-gray-500" x-text="shop.owner"></div>
                                             </td>
-                                            <td class="py-3 px-4 font-bold text-gray-800">৳ <span x-text="shop.monthlyBill"></span></td>
+                                            <td class="py-3 px-4 font-bold text-gray-800">৳ <span x-text="getInvoice(shop.id, selectedInvoiceYear, selectedInvoiceMonth)?.billAmount ?? '—'"></span></td>
                                             <td class="py-3 px-4">
                                                 <span class="px-3 py-1 rounded-full text-xs font-bold inline-flex items-center shadow-sm"
                                                       :class="{
-                                                          'bg-green-100 text-green-700 border border-green-300': getInvoice(shop.id, selectedInvoiceYear, selectedInvoiceMonth).status === 'Paid',
-                                                          'bg-amber-100 text-amber-700 border border-amber-300': getInvoice(shop.id, selectedInvoiceYear, selectedInvoiceMonth).status === 'Partial Paid',
-                                                          'bg-red-100 text-red-700 border border-red-300': getInvoice(shop.id, selectedInvoiceYear, selectedInvoiceMonth).status === 'Unpaid'
+                                                          'bg-green-100 text-green-700 border border-green-300': (getInvoice(shop.id, selectedInvoiceYear, selectedInvoiceMonth)?.status || 'বিল নেই') === 'Paid',
+                                                          'bg-amber-100 text-amber-700 border border-amber-300': (getInvoice(shop.id, selectedInvoiceYear, selectedInvoiceMonth)?.status || 'বিল নেই') === 'Partial Paid',
+                                                          'bg-red-100 text-red-700 border border-red-300': (getInvoice(shop.id, selectedInvoiceYear, selectedInvoiceMonth)?.status || 'বিল নেই') === 'Unpaid'
                                                       }">
                                                     <i class="fa-solid mr-1.5" :class="{
-                                                        'fa-check': getInvoice(shop.id, selectedInvoiceYear, selectedInvoiceMonth).status === 'Paid',
-                                                        'fa-clock-rotate-left': getInvoice(shop.id, selectedInvoiceYear, selectedInvoiceMonth).status === 'Partial Paid',
-                                                        'fa-xmark': getInvoice(shop.id, selectedInvoiceYear, selectedInvoiceMonth).status === 'Unpaid'
+                                                        'fa-check': (getInvoice(shop.id, selectedInvoiceYear, selectedInvoiceMonth)?.status || 'বিল নেই') === 'Paid',
+                                                        'fa-clock-rotate-left': (getInvoice(shop.id, selectedInvoiceYear, selectedInvoiceMonth)?.status || 'বিল নেই') === 'Partial Paid',
+                                                        'fa-xmark': (getInvoice(shop.id, selectedInvoiceYear, selectedInvoiceMonth)?.status || 'বিল নেই') === 'Unpaid'
                                                     }"></i>
-                                                    <span x-text="getInvoice(shop.id, selectedInvoiceYear, selectedInvoiceMonth).status"></span>
+                                                    <span x-text="(getInvoice(shop.id, selectedInvoiceYear, selectedInvoiceMonth)?.status || 'বিল নেই')"></span>
                                                 </span>
                                             </td>
                                             <td class="py-3 px-4 font-semibold text-gray-800">
-                                                ৳ <span x-text="getInvoice(shop.id, selectedInvoiceYear, selectedInvoiceMonth).paidAmount"></span>
+                                                ৳ <span x-text="(getInvoice(shop.id, selectedInvoiceYear, selectedInvoiceMonth)?.paidAmount || 0)"></span>
                                             </td>
-                                            <td class="py-3 px-4 text-xs text-gray-500" x-text="getInvoice(shop.id, selectedInvoiceYear, selectedInvoiceMonth).paymentDate || 'প্রযোজ্য নয়'"></td>
+                                            <td class="py-3 px-4 text-xs text-gray-500" x-text="(getInvoice(shop.id, selectedInvoiceYear, selectedInvoiceMonth)?.paymentDate || '') || 'প্রযোজ্য নয়'"></td>
                                             <td class="py-3 px-4 text-center">
                                                 <button @click="openPaymentModal(shop, selectedInvoiceYear, selectedInvoiceMonth)" class="px-3 py-1.5 bg-marketGreen-600 hover:bg-marketGreen-700 text-white rounded-lg text-xs font-semibold transition shadow">
                                                     <i class="fa-solid fa-pen-to-square mr-1"></i> স্ট্যাটাস পরিবর্তন
@@ -505,6 +505,16 @@
                                                           'bg-amber-100 text-amber-700': item.status === 'Partial Paid',
                                                           'bg-red-100 text-red-700': item.status === 'Unpaid'
                                                       }" x-text="item.status"></span>
+                                                <div class="mt-2 flex flex-wrap gap-1 text-[10px]">
+                                                    <template x-for="monthItem in item.months" :key="monthItem.month">
+                                                        <span class="px-1.5 py-1 rounded border bg-gray-50 whitespace-nowrap">
+                                                            <b x-text="monthItem.monthName"></b>
+                                                            <span>বিল ৳</span><span x-text="monthItem.bill"></span>
+                                                            <span>জমা ৳</span><span x-text="monthItem.paid"></span>
+                                                            <span>বাকি ৳</span><span x-text="monthItem.due"></span>
+                                                        </span>
+                                                    </template>
+                                                </div>
                                             </td>
                                         </tr>
                                     </template>
@@ -631,27 +641,35 @@
                     <input type="text" x-model="shopForm.address" required class="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-marketGreen-500">
                 </div>
 
-                <template x-if="!shopModal.isEdit">
+                <div>
                     <div class="p-4 bg-marketGreen-50 rounded-xl border border-marketGreen-200 space-y-3">
-                        <p class="text-xs font-bold text-marketGreen-800">প্রাথমিক মাস ও বিল স্ট্যাটাস নির্ধারণ</p>
-                        <div class="grid grid-cols-3 gap-2">
-                            <select x-model="shopForm.entryYear" class="border border-gray-300 rounded-lg p-2 text-xs font-semibold">
-                                <template x-for="yr in availableYears" :key="yr">
-                                    <option :value="yr" x-text="yr + ' সাল'"></option>
-                                </template>
-                            </select>
-                            <select x-model="shopForm.entryMonth" class="border border-gray-300 rounded-lg p-2 text-xs font-semibold">
-                                <template x-for="(mName, mKey) in months" :key="mKey">
-                                    <option :value="mKey" x-text="mName"></option>
-                                </template>
-                            </select>
-                            <select x-model="shopForm.entryStatus" class="border border-gray-300 rounded-lg p-2 text-xs font-semibold">
-                                <option value="Paid">Paid</option>
-                                <option value="Unpaid">Unpaid</option>
-                            </select>
+                        <p class="text-xs font-bold text-marketGreen-800">যে মাসগুলোর বিল তৈরি করবেন (সর্বোচ্চ ১২ মাস)</p>
+                        <select x-model.number="shopForm.entryYear" class="w-full border border-gray-300 rounded-lg p-2 text-sm font-semibold">
+                            <template x-for="yr in availableYears" :key="yr"><option :value="yr" x-text="yr + ' সাল'"></option></template>
+                        </select>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            <template x-for="(mName, mKey) in months" :key="mKey">
+                                <label class="flex items-center gap-2 bg-white rounded-lg p-2 border text-xs">
+                                    <input type="checkbox" :value="mKey" x-model="shopForm.entryMonths">
+                                    <span x-text="mName"></span>
+                                </label>
+                            </template>
                         </div>
+                        <p class="text-xs text-gray-600">শুধু নির্বাচিত মাসের বিল তৈরি হবে। প্রতিটি মাসের বিলের পরিমাণ আলাদাভাবে সংরক্ষিত হবে।</p>
+                        <div class="space-y-2">
+                            <template x-for="mKey in shopForm.entryMonths" :key="mKey">
+                                <div class="grid grid-cols-2 gap-2 items-center">
+                                    <span class="text-xs font-semibold" x-text="months[mKey]"></span>
+                                    <input type="number" min="0" step="0.01" :value="shopForm.entryBillAmounts[mKey] ?? shopForm.monthlyBill" @input="shopForm.entryBillAmounts[mKey] = Number($event.target.value)" class="w-full border rounded-lg p-2 text-sm" placeholder="বিলের টাকা">
+                                </div>
+                            </template>
+                        </div>
+                        <select x-model="shopForm.entryStatus" class="w-full border border-gray-300 rounded-lg p-2 text-sm font-semibold">
+                            <option value="Unpaid">Unpaid (বকেয়া)</option>
+                            <option value="Paid">Paid (পরিশোধিত)</option>
+                        </select>
                     </div>
-                </template>
+                </div>
 
                 <div class="flex justify-end space-x-3 pt-4 border-t">
                     <button type="button" @click="shopModal.open = false" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-xl text-sm font-semibold transition">বাতিল</button>
@@ -674,8 +692,8 @@
             
             <form @submit.prevent="savePayment" class="space-y-4">
                 <div>
-                    <label class="block text-xs font-semibold text-gray-700 mb-1">নির্ধারিত মাসিক বিল</label>
-                    <input type="text" :value="'৳ ' + paymentModal.totalBill" disabled class="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-xl text-sm font-bold text-gray-700">
+                    <label class="block text-xs font-semibold text-gray-700 mb-1">এই মাসের বিলের পরিমাণ (টাকা)</label>
+                    <input type="number" min="0" step="0.01" x-model.number="paymentModal.totalBill" required class="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm font-bold text-gray-700">
                 </div>
 
                 <div>
@@ -731,7 +749,7 @@
     <script>
         // Local IndexedDB storage. Data stays on this browser/device.
         const MARKET_DB_NAME = 'MarketManagementDB';
-        const MARKET_DB_VERSION = 1;
+        const MARKET_DB_VERSION = 2;
         let marketDbPromise = null;
 
         function openMarketDB() {
@@ -748,6 +766,10 @@
                 request.onupgradeneeded = () => {
                     const db = request.result;
                     if (!db.objectStoreNames.contains('records')) db.createObjectStore('records', { keyPath: 'key' });
+                    if (!db.objectStoreNames.contains('invoice_records')) {
+                        const invoiceStore = db.createObjectStore('invoice_records', { keyPath: 'key' });
+                        invoiceStore.createIndex('shopYearMonth', 'uniqueKey', { unique: true });
+                    }
                 };
                 request.onsuccess = () => {
                     const db = request.result;
@@ -788,9 +810,15 @@
             return new Promise((resolve, reject) => {
                 let tx;
                 try {
-                    tx = db.transaction('records', 'readwrite');
-                    const store = tx.objectStore('records');
-                    plainRows.forEach(row => store.put(row));
+                    tx = db.transaction(['records', 'invoice_records'], 'readwrite');
+                    const recordStore = tx.objectStore('records');
+                    const invoiceStore = tx.objectStore('invoice_records');
+                    plainRows.forEach(row => recordStore.put(row));
+                    invoiceStore.clear();
+                    const invoiceMap = JSON.parse(JSON.stringify(snapshot.invoices || {}));
+                    Object.entries(invoiceMap).forEach(([key, value]) => {
+                        invoiceStore.add({ key, uniqueKey: key, value });
+                    });
                 } catch (error) {
                     reject(error);
                     return;
@@ -816,7 +844,7 @@
                 selectedInvoiceMonth: 'january',
                 selectedYear: new Date().getFullYear(),
                 selectedInvoiceYear: new Date().getFullYear(),
-                availableYears: [2024, 2025, 2026, 2027, 2028],
+                availableYears: Array.from({ length: 41 }, (_, index) => 2000 + index),
                 reportType: 'monthly',
                 reportMonth: 'january',
                 reportYear: new Date().getFullYear(),
@@ -857,9 +885,9 @@
                 invoices: JSON.parse(localStorage.getItem('market_invoices')) || {},
 
                 shopModal: { open: false, isEdit: false, id: null },
-                shopForm: { serialNo: '', name: '', owner: '', mobile: '', businessType: '', monthlyBill: 1500, address: '', entryMonth: 'january', entryYear: new Date().getFullYear(), entryStatus: 'Paid' },
+                shopForm: { serialNo: '', name: '', owner: '', mobile: '', businessType: '', monthlyBill: 1500, address: '', entryMonths: [], entryBillAmounts: {}, entryYear: new Date().getFullYear(), entryStatus: 'Unpaid' },
 
-                paymentModal: { open: false, shopId: null, shopName: '', year: null, month: '', totalBill: 0, paidAmount: 0, status: 'Paid', paymentDate: '' },
+                paymentModal: { open: false, shopId: null, shopName: '', year: null, month: '', totalBill: 0, paidAmount: 0, status: 'Unpaid', paymentDate: '' },
                 detailsModal: { open: false, shop: {} },
 
                 async init() {
@@ -878,13 +906,16 @@
                             this.settings = { ...this.settings, ...savedSettings, newPassword: '' };
                         }
                         this.storageMode = 'indexeddb';
-                        this.shops.forEach(shop => {
-                            this.availableYears.forEach(yr => {
-                                Object.keys(this.months).forEach(m => {
-                                    const key = shop.id + '_' + yr + '_' + m;
-                                    if (!this.invoices[key]) this.invoices[key] = { paidAmount: 0, status: 'Unpaid', paymentDate: '' };
-                                });
-                            });
+                        // Preserve legacy invoice records. Old auto-created unpaid placeholders are
+                        // retained for review but are not treated as real bills until billAmount exists.
+                        Object.keys(this.invoices || {}).forEach(key => {
+                            const inv = this.invoices[key];
+                            if (!inv || typeof inv !== 'object') return;
+                            if (inv.billAmount === undefined) {
+                                const hasPayment = Number(inv.paidAmount || 0) > 0 || inv.status === 'Paid' || inv.status === 'Partial Paid';
+                                inv.billAmount = hasPayment ? Number((this.shops.find(x => String(x.id) === String(key.split('_')[0])) || {}).monthlyBill || 0) : 0;
+                                inv.legacyReview = !hasPayment;
+                            }
                         });
                         await this.saveData();
                     } catch (error) {
@@ -908,14 +939,16 @@
                         const rows = [];
                         let paidCount = 0;
                         let unpaidCount = 0;
-                        this.availableYears.forEach(year => {
-                            Object.keys(this.months).forEach(key => {
-                                const inv = this.invoices[shop.id + '_' + year + '_' + key] || { status: 'Unpaid' };
-                                const status = inv.status || 'Unpaid';
-                                if (status === 'Paid') paidCount++;
-                                else unpaidCount++;
-                                rows.push({ year, key, month: this.months[key], status });
-                            });
+                        Object.keys(this.invoices || {}).forEach(invoiceKey => {
+                            const parts = invoiceKey.split('_');
+                            if (String(parts[0]) !== String(shop.id)) return;
+                            const year = Number(parts[1]), key = parts.slice(2).join('_');
+                            const inv = this.invoices[invoiceKey];
+                            if (!inv || Number(inv.billAmount || 0) <= 0) return;
+                            const status = inv.status || 'Unpaid';
+                            if (status === 'Paid') paidCount++;
+                            else unpaidCount++;
+                            rows.push({ year, key, month: this.months[key] || key, status, billAmount: Number(inv.billAmount || 0), paidAmount: Number(inv.paidAmount || 0) });
                         });
                         return { shop, months: rows, paidCount, unpaidCount };
                     });
@@ -1015,9 +1048,10 @@
                         businessType: '', 
                         monthlyBill: this.settings.defaultBill, 
                         address: '',
-                        entryMonth: 'january',
+                        entryMonths: [],
+                        entryBillAmounts: {},
                         entryYear: new Date().getFullYear(),
-                        entryStatus: 'Paid'
+                        entryStatus: 'Unpaid'
                     };
                     this.shopModal.open = true;
                 },
@@ -1025,59 +1059,73 @@
                 editShop(shop) {
                     this.shopModal.isEdit = true;
                     this.shopModal.id = shop.id;
-                    this.shopForm = { ...shop, entryMonth: 'january', entryYear: new Date().getFullYear(), entryStatus: 'Paid' };
+                    this.shopForm = { ...shop, entryMonths: [], entryBillAmounts: {}, entryYear: new Date().getFullYear(), entryStatus: 'Unpaid' };
                     this.shopModal.open = true;
                 },
 
-                saveShop() {
-                    let billVal = Number(this.shopForm.monthlyBill);
+                async saveShop() {
+                    const billVal = Number(this.shopForm.monthlyBill || 0);
+                    if (!Number.isFinite(billVal) || billVal < 0) {
+                        this.showToast('সঠিক বিলের পরিমাণ দিন।', 'error'); return;
+                    }
                     if (this.shopModal.isEdit) {
-                        let idx = this.shops.findIndex(s => s.id === this.shopModal.id);
-                        if (idx !== -1) {
-                            this.shops[idx] = { 
-                                id: this.shopModal.id,
-                                serialNo: this.shopForm.serialNo,
-                                name: this.shopForm.name,
-                                owner: this.shopForm.owner,
-                                mobile: this.shopForm.mobile,
-                                businessType: this.shopForm.businessType,
-                                monthlyBill: billVal,
-                                address: this.shopForm.address
-                            };
-                        }
-                        this.showToast('দোকানের তথ্য সফলভাবে আপডেট হয়েছে!');
-                    } else {
-                        let newId = this.shops.length > 0 ? Math.max(...this.shops.map(s => s.id)) + 1 : 1;
-                        let newShop = { 
-                            id: newId, 
-                            serialNo: this.shopForm.serialNo,
-                            name: this.shopForm.name,
-                            owner: this.shopForm.owner,
-                            mobile: this.shopForm.mobile,
-                            businessType: this.shopForm.businessType,
-                            monthlyBill: billVal,
-                            address: this.shopForm.address
+                        const idx = this.shops.findIndex(s => s.id === this.shopModal.id);
+                        if (idx !== -1) this.shops[idx] = {
+                            ...this.shops[idx], serialNo: this.shopForm.serialNo, name: this.shopForm.name,
+                            owner: this.shopForm.owner, mobile: this.shopForm.mobile,
+                            businessType: this.shopForm.businessType, monthlyBill: billVal, address: this.shopForm.address
                         };
+                        const selected = Array.isArray(this.shopForm.entryMonths) ? this.shopForm.entryMonths : [];
+                        const pending = {};
+                        for (const month of selected) {
+                            const key = this.shopModal.id + '_' + Number(this.shopForm.entryYear) + '_' + month;
+                            if (this.invoices[key] && !(this.invoices[key].legacyReview && Number(this.invoices[key].billAmount || 0) <= 0)) {
+                                this.showToast(this.months[month] + ' মাসের বিল আগে থেকেই আছে। ডুপ্লিকেট তৈরি হয়নি।', 'error'); return;
+                            }
+                            const amount = Number(this.shopForm.entryBillAmounts?.[month] ?? billVal);
+                            if (!Number.isFinite(amount) || amount <= 0) {
+                                this.showToast(this.months[month] + ' মাসের বিলের পরিমাণ সঠিক নয়।', 'error'); return;
+                            }
+                            const status = this.shopForm.entryStatus || 'Unpaid';
+                            pending[key] = { billAmount: amount, paidAmount: status === 'Paid' ? amount : 0,
+                                status, paymentDate: status === 'Paid' ? new Date().toISOString().slice(0,10) : '',
+                                createdAt: new Date().toISOString() };
+                        }
+                        Object.assign(this.invoices, pending);
+                        this.showToast(selected.length ? 'দোকানের তথ্য ও নির্বাচিত মাসের বিল আপডেট হয়েছে!' : 'দোকানের তথ্য সফলভাবে আপডেট হয়েছে!');
+                    } else {
+                        const monthsToCreate = Array.isArray(this.shopForm.entryMonths) ? this.shopForm.entryMonths : [];
+                        if (!monthsToCreate.length || monthsToCreate.length > 12) {
+                            this.showToast('কমপক্ষে ১টি এবং সর্বোচ্চ ১২টি মাস নির্বাচন করুন।', 'error'); return;
+                        }
+                        const year = Number(this.shopForm.entryYear);
+                        const newId = this.shops.length ? Math.max(...this.shops.map(s => Number(s.id) || 0)) + 1 : 1;
+                        const newShop = { id: newId, serialNo: this.shopForm.serialNo, name: this.shopForm.name,
+                            owner: this.shopForm.owner, mobile: this.shopForm.mobile, businessType: this.shopForm.businessType,
+                            monthlyBill: billVal, address: this.shopForm.address };
+                        const pending = {};
+                        for (const month of monthsToCreate) {
+                            const key = newId + '_' + year + '_' + month;
+                            if (this.invoices[key] && !(this.invoices[key].legacyReview && Number(this.invoices[key].billAmount || 0) <= 0)) {
+                                this.showToast(this.months[month] + ' মাসের বিল আগে থেকেই আছে। ডুপ্লিকেট তৈরি হয়নি।', 'error'); return;
+                            }
+                            const amount = Number(this.shopForm.entryBillAmounts?.[month] ?? billVal);
+                            if (!Number.isFinite(amount) || amount <= 0) {
+                                this.showToast(this.months[month] + ' মাসের বিলের পরিমাণ সঠিক নয়।', 'error'); return;
+                            }
+                            const status = this.shopForm.entryStatus || 'Unpaid';
+                            pending[key] = { billAmount: amount, paidAmount: status === 'Paid' ? amount : 0,
+                                status, paymentDate: status === 'Paid' ? new Date().toISOString().slice(0,10) : '',
+                                createdAt: new Date().toISOString() };
+                        }
+                        // Validate all keys first, then commit the complete set together.
                         this.shops.push(newShop);
-
-                        this.availableYears.forEach(yr => {
-                            Object.keys(this.months).forEach(m => {
-                                let isChosen = (yr === Number(this.shopForm.entryYear) && m === this.shopForm.entryMonth);
-                                let status = isChosen ? this.shopForm.entryStatus : 'Unpaid';
-                                let paidAmt = (status === 'Paid') ? billVal : 0;
-                                let pDate = (status === 'Paid') ? new Date().toISOString().split('T')[0] : '';
-                                
-                                this.invoices[newId + '_' + yr + '_' + m] = {
-                                    paidAmount: paidAmt,
-                                    status: status,
-                                    paymentDate: pDate
-                                };
-                            });
-                        });
-                        this.showToast('নতুন দোকান সফলভাবে এন্ট্রি করা হয়েছে!');
+                        Object.assign(this.invoices, pending);
+                        this.showToast('দোকান ও নির্বাচিত মাসগুলোর বিল তৈরি হয়েছে!');
                     }
                     this.shops = [...this.shops];
-                    this.saveData();
+                    const saved = await this.saveData();
+                    if (!saved) this.showToast('সংরক্ষণে সমস্যা হয়েছে। ব্যাকআপ নিয়ে আবার চেষ্টা করুন।', 'error');
                     this.shopModal.open = false;
                 },
 
@@ -1103,22 +1151,22 @@
                 },
 
                 getInvoice(shopId, year, month) {
-                    let key = shopId + '_' + year + '_' + month;
-                    if (!this.invoices[key]) {
-                        this.invoices[key] = { paidAmount: 0, status: 'Unpaid', paymentDate: '' };
-                    }
-                    return this.invoices[key];
+                    const key = shopId + '_' + year + '_' + month;
+                    return this.invoices[key] || null;
                 },
 
                 openPaymentModal(shop, year, month) {
                     let inv = this.getInvoice(shop.id, year, month);
+                    if (!inv || Number(inv.billAmount || 0) <= 0) {
+                        this.showToast('এই মাসে এখনো বিল তৈরি হয়নি। আগে বিল এন্ট্রি করুন।', 'error'); return;
+                    }
                     this.paymentModal.shopId = shop.id;
                     this.paymentModal.shopName = shop.name;
                     this.paymentModal.year = year;
                     this.paymentModal.month = month;
-                    this.paymentModal.totalBill = shop.monthlyBill;
+                    this.paymentModal.totalBill = Number(inv.billAmount || shop.monthlyBill || 0);
                     this.paymentModal.status = inv.status || 'Unpaid';
-                    this.paymentModal.paidAmount = inv.paidAmount || (inv.status === 'Paid' ? shop.monthlyBill : 0);
+                    this.paymentModal.paidAmount = Number(inv.paidAmount || 0);
                     this.paymentModal.paymentDate = inv.paymentDate || new Date().toISOString().split('T')[0];
                     this.paymentModal.open = true;
                 },
@@ -1132,133 +1180,71 @@
                 },
 
                 async savePayment() {
-                    let key = this.paymentModal.shopId + '_' + this.paymentModal.year + '_' + this.paymentModal.month;
-                    let shopObj = this.shops.find(s => s.id === this.paymentModal.shopId);
-                    let billAmount = shopObj ? shopObj.monthlyBill : 0;
-                    
-                    let finalPaidAmt = 0;
-                    if (this.paymentModal.status === 'Paid') {
-                        finalPaidAmt = billAmount;
-                    } else if (this.paymentModal.status === 'Partial Paid') {
-                        finalPaidAmt = Number(this.paymentModal.paidAmount);
-                        if (finalPaidAmt > billAmount) finalPaidAmt = billAmount;
-                        if (finalPaidAmt < 0) finalPaidAmt = 0;
-                    } else {
-                        finalPaidAmt = 0;
+                    const key = this.paymentModal.shopId + '_' + this.paymentModal.year + '_' + this.paymentModal.month;
+                    const existing = this.invoices[key];
+                    if (!existing || Number(existing.billAmount || 0) <= 0) {
+                        this.showToast('এই মাসের বিল পাওয়া যায়নি।', 'error'); return;
                     }
-
-                    let isEffectActive = (this.paymentModal.status !== 'Unpaid');
-                    this.invoices[key] = {
-                        paidAmount: finalPaidAmt,
-                        status: this.paymentModal.status,
-                        paymentDate: isEffectActive ? this.paymentModal.paymentDate : ''
-                    };
+                    const billAmount = Number(this.paymentModal.totalBill);
+                    if (!Number.isFinite(billAmount) || billAmount <= 0) {
+                        this.showToast('বিলের পরিমাণ শূন্যের বেশি হতে হবে।', 'error'); return;
+                    }
+                    let paid = this.paymentModal.status === 'Paid' ? billAmount :
+                        this.paymentModal.status === 'Partial Paid' ? Number(this.paymentModal.paidAmount) : 0;
+                    if (!Number.isFinite(paid) || paid < 0 || paid > billAmount ||
+                        (this.paymentModal.status === 'Partial Paid' && paid <= 0)) {
+                        this.showToast('পরিশোধিত টাকার পরিমাণ সঠিক নয়।', 'error'); return;
+                    }
+                    this.invoices[key] = { ...existing, billAmount, paidAmount: paid,
+                        status: paid >= billAmount ? 'Paid' : paid > 0 ? 'Partial Paid' : 'Unpaid',
+                        paymentDate: paid > 0 ? this.paymentModal.paymentDate : '' };
                     this.paymentModal.open = false;
                     const saved = await this.saveData();
-                    if (saved && this.storageMode === 'indexeddb') this.showToast('বিলের তথ্য IndexedDB-তে সংরক্ষিত হয়েছে!');
-                    else if (saved) this.showToast('বিলের তথ্য LocalStorage-এ সংরক্ষিত হয়েছে।', 'error');
+                    if (saved) this.showToast('এই মাসের বিল ও পেমেন্ট সংরক্ষিত হয়েছে!');
+                    else this.showToast('সংরক্ষণে সমস্যা হয়েছে।', 'error');
                 },
 
                 getDashboardStats() {
-                    let yr = this.selectedYear;
-                    let m = this.selectedMonth;
-                    let totalBill = 0;
-                    let totalCollected = 0;
-                    let totalDue = 0;
-                    let paidCount = 0;
-                    let unpaidCount = 0;
-                    let partialCount = 0;
-
+                    let totalBill = 0, totalCollected = 0, totalDue = 0;
+                    let paidCount = 0, unpaidCount = 0, partialCount = 0;
                     this.shops.forEach(shop => {
-                        let bill = Number(shop.monthlyBill);
-                        totalBill += bill;
-                        let inv = this.getInvoice(shop.id, yr, m);
-                        let paid = Number(inv.paidAmount || 0);
-                        totalCollected += paid;
-                        let due = bill - paid;
-                        totalDue += (due > 0 ? due : 0);
-
+                        const inv = this.getInvoice(shop.id, this.selectedYear, this.selectedMonth);
+                        if (!inv || Number(inv.billAmount || 0) <= 0) return;
+                        const bill = Number(inv.billAmount), paid = Number(inv.paidAmount || 0);
+                        totalBill += bill; totalCollected += paid; totalDue += Math.max(0, bill - paid);
                         if (inv.status === 'Paid') paidCount++;
                         else if (inv.status === 'Partial Paid') partialCount++;
                         else unpaidCount++;
                     });
-
                     return { totalBill, totalCollected, totalDue, paidCount, unpaidCount, partialCount };
                 },
 
                 getReportData() {
-                    let items = [];
-                    let totalBill = 0;
-                    let totalCollected = 0;
-                    let totalDue = 0;
-                    let yr = this.reportYear;
-
-                    if (this.reportType === 'monthly') {
-                        let m = this.reportMonth;
-                        this.shops.forEach(shop => {
-                            let bill = Number(shop.monthlyBill);
-                            let inv = this.getInvoice(shop.id, yr, m);
-                            let paid = Number(inv.paidAmount || 0);
-                            let due = bill - paid;
-                            if (due < 0) due = 0;
-
-                            totalBill += bill;
-                            totalCollected += paid;
-                            totalDue += due;
-
-                            items.push({
-                                id: shop.id,
-                                serialNo: shop.serialNo,
-                                name: shop.name,
-                                owner: shop.owner,
-                                bill: bill,
-                                paid: paid,
-                                due: due,
-                                status: inv.status || 'Unpaid'
-                            });
+                    const items = [];
+                    let totalBill = 0, totalCollected = 0, totalDue = 0;
+                    const yr = Number(this.reportYear);
+                    const monthsToReport = this.reportType === 'monthly' ? [this.reportMonth] : Object.keys(this.months);
+                    this.shops.forEach(shop => {
+                        let shopBill = 0, shopPaid = 0;
+                        const monthRows = [];
+                        monthsToReport.forEach(month => {
+                            const inv = this.getInvoice(shop.id, yr, month);
+                            if (!inv || Number(inv.billAmount || 0) <= 0) return;
+                            const bill = Number(inv.billAmount), paid = Number(inv.paidAmount || 0);
+                            const due = Math.max(0, bill - paid);
+                            shopBill += bill; shopPaid += paid;
+                            monthRows.push({ month, monthName: this.months[month], bill, paid, due,
+                                status: inv.status || (paid >= bill ? 'Paid' : paid > 0 ? 'Partial Paid' : 'Unpaid') });
                         });
-                    } else {
-                        this.shops.forEach(shop => {
-                            let shopBill = 0;
-                            let shopPaid = 0;
-
-                            Object.keys(this.months).forEach(m => {
-                                let bill = Number(shop.monthlyBill);
-                                shopBill += bill;
-                                let inv = this.getInvoice(shop.id, yr, m);
-                                let paid = Number(inv.paidAmount || 0);
-                                shopPaid += paid;
-                            });
-
-                            let shopDue = shopBill - shopPaid;
-                            if (shopDue < 0) shopDue = 0;
-
-                            totalBill += shopBill;
-                            totalCollected += shopPaid;
-                            totalDue += shopDue;
-
-                            let yearlyStatus = 'Paid';
-                            if (shopDue > 0 && shopPaid > 0) yearlyStatus = 'Partial Paid';
-                            else if (shopPaid === 0) yearlyStatus = 'Unpaid';
-
-                            items.push({
-                                id: shop.id,
-                                serialNo: shop.serialNo,
-                                name: shop.name,
-                                owner: shop.owner,
-                                bill: shopBill,
-                                paid: shopPaid,
-                                due: shopDue,
-                                status: yearlyStatus
-                            });
-                        });
-                    }
-
+                        if (!monthRows.length) return;
+                        totalBill += shopBill; totalCollected += shopPaid; totalDue += Math.max(0, shopBill - shopPaid);
+                        const shopDue = Math.max(0, shopBill - shopPaid);
+                        items.push({ id: shop.id, serialNo: shop.serialNo, name: shop.name, owner: shop.owner,
+                            bill: shopBill, paid: shopPaid, due: shopDue,
+                            status: shopDue === 0 ? 'Paid' : shopPaid > 0 ? 'Partial Paid' : 'Unpaid',
+                            months: monthRows });
+                    });
                     return { totalBill, totalCollected, totalDue, items };
-                },
-
-                printReport() {
-                    window.print();
                 },
 
                 exportCSV() {
@@ -1300,6 +1286,15 @@
                         if (!confirm('বর্তমান দোকান ও বিলের তথ্য ব্যাকআপের তথ্য দিয়ে পরিবর্তন হবে। চালিয়ে যাবেন?')) return;
                         this.shops = data.shops;
                         this.invoices = data.invoices || {};
+                        Object.keys(this.invoices).forEach(key => {
+                            const inv = this.invoices[key];
+                            if (!inv || typeof inv !== 'object' || inv.billAmount !== undefined) return;
+                            const shopId = key.split('_')[0];
+                            const shop = this.shops.find(item => String(item.id) === String(shopId));
+                            const hasPayment = Number(inv.paidAmount || 0) > 0 || inv.status === 'Paid' || inv.status === 'Partial Paid';
+                            inv.billAmount = hasPayment ? Number((shop || {}).monthlyBill || 0) : 0;
+                            inv.legacyReview = !hasPayment;
+                        });
                         if (data.settings && typeof data.settings === 'object') {
                             this.settings = { ...this.settings, ...data.settings, newPassword: '' };
                         }
