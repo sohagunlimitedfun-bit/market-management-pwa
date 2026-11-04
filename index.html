@@ -773,10 +773,28 @@
         }
 
         function writeMarketSnapshot(db, snapshot) {
+            // Alpine.js reactive values may be Proxy objects, which IndexedDB cannot clone.
+            // Convert each record to plain JSON data before opening the transaction.
+            let plainRows;
+            try {
+                plainRows = Object.entries(snapshot).map(([key, value]) => ({
+                    key,
+                    value: JSON.parse(JSON.stringify(value))
+                }));
+            } catch (error) {
+                return Promise.reject(new Error('ডাটা প্রস্তুত করা যায়নি: ' + (error.message || error)));
+            }
+
             return new Promise((resolve, reject) => {
-                const tx = db.transaction('records', 'readwrite');
-                const store = tx.objectStore('records');
-                Object.entries(snapshot).forEach(([key, value]) => store.put({ key, value }));
+                let tx;
+                try {
+                    tx = db.transaction('records', 'readwrite');
+                    const store = tx.objectStore('records');
+                    plainRows.forEach(row => store.put(row));
+                } catch (error) {
+                    reject(error);
+                    return;
+                }
                 tx.oncomplete = () => resolve();
                 tx.onerror = () => reject(tx.error || new Error('ডাটা সংরক্ষণ করা যায়নি।'));
                 tx.onabort = () => reject(tx.error || new Error('ডাটা সংরক্ষণ বাতিল হয়েছে।'));
