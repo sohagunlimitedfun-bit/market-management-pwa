@@ -1,4 +1,4 @@
-const CACHE_NAME = 'market-management-pwa-v5';
+const CACHE_NAME = 'market-management-pwa-v6';
 const APP_SHELL = [
   new URL('./', self.registration.scope).href,
   new URL('index.html', self.registration.scope).href,
@@ -39,8 +39,7 @@ self.addEventListener('fetch', event => {
     if (request.mode === 'navigate') {
       try {
         const response = await fetch(request);
-        if (response && response.ok) await cache.put(new URL('index.html', self.registration.scope).href,
-  new URL('1market_bill_search.html', self.registration.scope).href, response.clone());
+        if (response && response.ok) await cache.put(request, response.clone());
         return response;
       } catch (_) {
         return (await cache.match(request)) ||

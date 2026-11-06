@@ -40,10 +40,35 @@
         }
     </script>
     <style>
+        /* Report printing: keep only the report visible in the browser print preview. */
+        @page { size: A4; margin: 12mm; }
         @media print {
-            body { background: white !important; }
+            html, body {
+                height: auto !important;
+                min-height: 0 !important;
+                background: #fff !important;
+                overflow: visible !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            body * { visibility: hidden !important; }
+            .printable-area, .printable-area * { visibility: visible !important; }
             .no-print { display: none !important; }
-            .printable-area { box-shadow: none !important; border: none !important; padding: 0 !important; }
+            .printable-area {
+                display: block !important;
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100% !important;
+                max-width: none !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                border: 0 !important;
+                box-shadow: none !important;
+                background: #fff !important;
+            }
+            .printable-area table { width: 100% !important; border-collapse: collapse !important; }
+            .printable-area tr { break-inside: avoid; page-break-inside: avoid; }
         }
     </style>
 </head>
@@ -1245,6 +1270,21 @@
                             months: monthRows });
                     });
                     return { totalBill, totalCollected, totalDue, items };
+                },
+
+                printReport() {
+                    // Called directly by the user's button click so mobile browsers can open print preview.
+                    try {
+                        if (typeof window.print !== 'function') {
+                            alert('এই ব্রাউজারে Print / PDF সুবিধা পাওয়া যাচ্ছে না। Chrome দিয়ে চেষ্টা করুন।');
+                            return;
+                        }
+                        window.focus();
+                        window.print();
+                    } catch (error) {
+                        console.error('Print / PDF failed:', error);
+                        alert('PDF প্রিন্ট চালু করা যায়নি। পেজটি রিফ্রেশ করে আবার চেষ্টা করুন।');
+                    }
                 },
 
                 exportCSV() {
