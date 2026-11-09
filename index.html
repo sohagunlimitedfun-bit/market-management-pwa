@@ -40,33 +40,13 @@
         }
     </script>
     <style>
-        /* Report printing: keep only the report visible in the browser print preview. */
         @page { size: A4; margin: 12mm; }
         @media print {
-            html, body {
-                height: auto !important;
-                min-height: 0 !important;
-                background: #fff !important;
-                overflow: visible !important;
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-            }
+            html, body { height: auto !important; min-height: 0 !important; background: #fff !important; overflow: visible !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
             body * { visibility: hidden !important; }
             .printable-area, .printable-area * { visibility: visible !important; }
             .no-print { display: none !important; }
-            .printable-area {
-                display: block !important;
-                position: absolute !important;
-                left: 0 !important;
-                top: 0 !important;
-                width: 100% !important;
-                max-width: none !important;
-                margin: 0 !important;
-                padding: 0 !important;
-                border: 0 !important;
-                box-shadow: none !important;
-                background: #fff !important;
-            }
+            .printable-area { display: block !important; position: absolute !important; left: 0 !important; top: 0 !important; width: 100% !important; max-width: none !important; margin: 0 !important; padding: 0 !important; border: 0 !important; box-shadow: none !important; background: #fff !important; }
             .printable-area table { width: 100% !important; border-collapse: collapse !important; }
             .printable-area tr { break-inside: avoid; page-break-inside: avoid; }
         }
@@ -377,6 +357,10 @@
                         <div>
                             <h3 class="text-lg font-bold text-gray-800">মাসিক বিল ও ইনভয়েস ব্যবস্থাপনা</h3>
                             <p class="text-xs text-gray-500">বছর ও মাস নির্বাচন করে বিল স্ট্যাটাস পরিচালনা করুন।</p>
+                            <div class="relative mt-3 w-full md:max-w-sm">
+                                <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-gray-400"></i>
+                                <input type="text" x-model="invoiceSearchQuery" placeholder="ব্যবসায়ী / দোকানের নাম / ক্রমিক খুঁজুন..." class="w-full pl-9 pr-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-marketGreen-500 focus:outline-none">
+                            </div>
                         </div>
                         <div class="flex items-center space-x-3 flex-wrap gap-2">
                             <select x-model="selectedInvoiceYear" class="border border-gray-300 rounded-lg px-3 py-2 text-sm font-semibold text-marketGreen-700 bg-marketGreen-50 focus:ring-2 focus:ring-marketGreen-500">
@@ -407,7 +391,7 @@
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-gray-200 text-sm text-gray-700">
-                                    <template x-for="shop in shops" :key="shop.id">
+                                    <template x-for="shop in invoiceFilteredShops" :key="shop.id">
                                         <tr class="hover:bg-gray-50 transition">
                                             <td class="py-3 px-4 font-bold text-marketGreen-700" x-text="shop.serialNo"></td>
                                             <td class="py-3 px-4">
@@ -417,11 +401,7 @@
                                             <td class="py-3 px-4 font-bold text-gray-800">৳ <span x-text="getInvoice(shop.id, selectedInvoiceYear, selectedInvoiceMonth)?.billAmount ?? '—'"></span></td>
                                             <td class="py-3 px-4">
                                                 <span class="px-3 py-1 rounded-full text-xs font-bold inline-flex items-center shadow-sm"
-                                                      :class="{
-                                                          'bg-green-100 text-green-700 border border-green-300': (getInvoice(shop.id, selectedInvoiceYear, selectedInvoiceMonth)?.status || 'বিল নেই') === 'Paid',
-                                                          'bg-amber-100 text-amber-700 border border-amber-300': (getInvoice(shop.id, selectedInvoiceYear, selectedInvoiceMonth)?.status || 'বিল নেই') === 'Partial Paid',
-                                                          'bg-red-100 text-red-700 border border-red-300': (getInvoice(shop.id, selectedInvoiceYear, selectedInvoiceMonth)?.status || 'বিল নেই') === 'Unpaid'
-                                                      }">
+                                                      :class="getMonthStatusClass(shop.id, selectedInvoiceYear, selectedInvoiceMonth)">
                                                     <i class="fa-solid mr-1.5" :class="{
                                                         'fa-check': (getInvoice(shop.id, selectedInvoiceYear, selectedInvoiceMonth)?.status || 'বিল নেই') === 'Paid',
                                                         'fa-clock-rotate-left': (getInvoice(shop.id, selectedInvoiceYear, selectedInvoiceMonth)?.status || 'বিল নেই') === 'Partial Paid',
@@ -435,8 +415,8 @@
                                             </td>
                                             <td class="py-3 px-4 text-xs text-gray-500" x-text="(getInvoice(shop.id, selectedInvoiceYear, selectedInvoiceMonth)?.paymentDate || '') || 'প্রযোজ্য নয়'"></td>
                                             <td class="py-3 px-4 text-center">
-                                                <button @click="openPaymentModal(shop, selectedInvoiceYear, selectedInvoiceMonth)" class="px-3 py-1.5 bg-marketGreen-600 hover:bg-marketGreen-700 text-white rounded-lg text-xs font-semibold transition shadow">
-                                                    <i class="fa-solid fa-pen-to-square mr-1"></i> স্ট্যাটাস পরিবর্তন
+                                                <button @click="openMonthStatusModal(shop)" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-semibold transition shadow">
+                                                    <i class="fa-solid fa-pen-to-square mr-1"></i> Edit
                                                 </button>
                                             </td>
                                         </tr>
@@ -704,6 +684,66 @@
         </div>
     </div>
 
+    <!-- SHOP 12-MONTH STATUS MODAL -->
+    <div x-show="monthStatusModal.open" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4" style="display: none;">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-5 border border-gray-200 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-start justify-between gap-3 pb-4 border-b mb-4">
+                <div>
+                    <h3 class="text-lg font-bold text-gray-800">ব্যবসায়ীর ১২ মাসের বিল</h3>
+                    <p class="text-sm text-marketGreen-700 font-semibold" x-text="(monthStatusModal.shop?.name || '') + ' — ' + (monthStatusModal.shop?.owner || '')"></p>
+                    <p class="text-xs text-gray-500 mt-1" x-text="monthStatusModal.year + ' সালের বিলের অবস্থা' "></p>
+                </div>
+                <button @click="monthStatusModal.open = false" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                <template x-for="monthKey in Object.keys(months)" :key="monthKey">
+                    <button type="button" @click="openMonthDetail(monthStatusModal.shop, monthStatusModal.year, monthKey)" class="rounded-xl border p-3 text-center transition hover:shadow-md" :class="getMonthStatusClass(monthStatusModal.shop?.id, monthStatusModal.year, monthKey)">
+                        <span class="block text-sm font-bold" x-text="months[monthKey]"></span>
+                        <span class="block text-[11px] mt-1" x-text="getMonthStatusLabel(monthStatusModal.shop?.id, monthStatusModal.year, monthKey)"></span>
+                    </button>
+                </template>
+            </div>
+            <div class="flex flex-wrap gap-3 text-xs mt-4 pt-3 border-t">
+                <span class="flex items-center gap-1"><i class="w-3 h-3 rounded bg-green-500"></i> পরিশোধিত</span>
+                <span class="flex items-center gap-1"><i class="w-3 h-3 rounded bg-red-500"></i> অপরিশোধিত</span>
+                <span class="flex items-center gap-1"><i class="w-3 h-3 rounded bg-yellow-400"></i> আংশিক</span>
+                <span class="flex items-center gap-1"><i class="w-3 h-3 rounded bg-gray-300"></i> বিল নেই</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- SELECTED MONTH BILL DETAILS MODAL -->
+    <div x-show="monthDetailModal.open" class="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4" style="display: none;">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 border border-gray-200 space-y-4">
+            <div class="flex items-start justify-between gap-3 pb-3 border-b">
+                <div>
+                    <h3 class="text-lg font-bold text-gray-800">মাসের বিল ও পেমেন্টের তথ্য</h3>
+                    <p class="text-sm text-marketGreen-700 font-semibold" x-text="(monthDetailModal.shop?.name || '') + ' — ' + (months[monthDetailModal.month] || '') + ' ' + monthDetailModal.year"></p>
+                </div>
+                <button @click="monthDetailModal.open = false" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="rounded-xl p-3 text-center border" :class="getMonthStatusClass(monthDetailModal.shop?.id, monthDetailModal.year, monthDetailModal.month)">
+                <p class="text-xs">বিলের অবস্থা</p>
+                <p class="font-bold text-lg" x-text="getMonthStatusLabel(monthDetailModal.shop?.id, monthDetailModal.year, monthDetailModal.month)"></p>
+            </div>
+            <template x-if="monthDetailModal.invoice && Number(monthDetailModal.invoice.billAmount || 0) > 0">
+                <div class="space-y-2 text-sm">
+                    <div class="flex justify-between"><span class="text-gray-500">মোট বিল</span><strong>৳ <span x-text="monthDetailModal.invoice.billAmount"></span></strong></div>
+                    <div class="flex justify-between"><span class="text-gray-500">পরিশোধিত</span><strong class="text-green-700">৳ <span x-text="getInvoicePaidAmount(monthDetailModal.invoice)"></span></strong></div>
+                    <div class="flex justify-between"><span class="text-gray-500">বকেয়া</span><strong class="text-red-600">৳ <span x-text="Math.max(0, Number(monthDetailModal.invoice.billAmount || 0) - getInvoicePaidAmount(monthDetailModal.invoice))"></span></strong></div>
+                    <div class="flex justify-between"><span class="text-gray-500">পেমেন্ট তারিখ</span><strong x-text="monthDetailModal.invoice.paymentDate || 'প্রযোজ্য নয়'"></strong></div>
+                </div>
+            </template>
+            <template x-if="!monthDetailModal.invoice || Number(monthDetailModal.invoice.billAmount || 0) <= 0">
+                <p class="text-sm text-gray-500 bg-gray-50 rounded-xl p-4 text-center">এই মাসে কোনো বিল এন্ট্রি করা হয়নি। তাই পেমেন্টের তথ্য নেই।</p>
+            </template>
+            <div class="flex justify-end gap-2 pt-3 border-t">
+                <button @click="monthDetailModal.open = false" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-xl text-sm font-semibold">বন্ধ করুন</button>
+                <button x-show="monthDetailModal.invoice && Number(monthDetailModal.invoice.billAmount || 0) > 0" @click="openPaymentModal(monthDetailModal.shop, monthDetailModal.year, monthDetailModal.month)" class="px-4 py-2 bg-marketGreen-600 hover:bg-marketGreen-700 text-white rounded-xl text-sm font-semibold"><i class="fa-solid fa-pen-to-square mr-1"></i> পেমেন্ট এডিট</button>
+            </div>
+        </div>
+    </div>
+
     <!-- PAYMENT MODAL -->
     <div x-show="paymentModal.open" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4" style="display: none;">
         <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 border border-gray-200">
@@ -859,6 +899,7 @@
                 isLoggedIn: localStorage.getItem('market_logged_in') === 'true',
                 currentTab: 'dashboard',
                 searchQuery: '',
+                invoiceSearchQuery: '',
                 showAdminLogin: false,
                 publicSearchQuery: '',
                 publicSearchResults: [],
@@ -912,6 +953,8 @@
                 shopModal: { open: false, isEdit: false, id: null },
                 shopForm: { serialNo: '', name: '', owner: '', mobile: '', businessType: '', monthlyBill: 1500, address: '', entryMonths: [], entryBillAmounts: {}, entryYear: new Date().getFullYear(), entryStatus: 'Unpaid' },
 
+                monthStatusModal: { open: false, shop: null, year: new Date().getFullYear() },
+                monthDetailModal: { open: false, shop: null, year: null, month: '', invoice: null },
                 paymentModal: { open: false, shopId: null, shopName: '', year: null, month: '', totalBill: 0, paidAmount: 0, status: 'Unpaid', paymentDate: '' },
                 detailsModal: { open: false, shop: {} },
 
@@ -1056,6 +1099,16 @@
                     }
                 },
 
+                get invoiceFilteredShops() {
+                    const q = String(this.invoiceSearchQuery || '').trim().toLocaleLowerCase();
+                    if (!q) return this.shops;
+                    return this.shops.filter(shop =>
+                        String(shop.name || '').toLocaleLowerCase().includes(q) ||
+                        String(shop.owner || '').toLocaleLowerCase().includes(q) ||
+                        String(shop.serialNo || '').toLocaleLowerCase().includes(q)
+                    );
+                },
+
                 get filteredShops() {
                     if (!this.searchQuery) return this.shops;
                     let q = this.searchQuery.toLowerCase();
@@ -1180,6 +1233,55 @@
                     return this.invoices[key] || null;
                 },
 
+                openMonthStatusModal(shop) {
+                    this.monthStatusModal.shop = shop;
+                    this.monthStatusModal.year = Number(this.selectedInvoiceYear) || new Date().getFullYear();
+                    this.monthStatusModal.open = true;
+                },
+
+                getMonthInvoice(shopId, year, month) {
+                    const invoice = this.getInvoice(shopId, year, month);
+                    return invoice && Number(invoice.billAmount || 0) > 0 ? invoice : null;
+                },
+
+                getMonthStatus(shopId, year, month) {
+                    const invoice = this.getMonthInvoice(shopId, year, month);
+                    if (!invoice) return 'No Bill';
+                    const paid = this.getInvoicePaidAmount(invoice);
+                    const bill = Number(invoice.billAmount || 0);
+                    if (invoice.status === 'Paid' || paid >= bill) return 'Paid';
+                    if (invoice.status === 'Partial Paid' || paid > 0) return 'Partial Paid';
+                    return 'Unpaid';
+                },
+
+                getMonthStatusLabel(shopId, year, month) {
+                    const status = this.getMonthStatus(shopId, year, month);
+                    return status === 'Paid' ? 'পরিশোধিত' : status === 'Partial Paid' ? 'আংশিক' : status === 'Unpaid' ? 'অপরিশোধিত' : 'বিল নেই';
+                },
+
+                getMonthStatusClass(shopId, year, month) {
+                    const status = this.getMonthStatus(shopId, year, month);
+                    return status === 'Paid' ? 'bg-green-100 text-green-800 border-green-300' :
+                        status === 'Partial Paid' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' :
+                        status === 'Unpaid' ? 'bg-red-100 text-red-800 border-red-300' :
+                        'bg-gray-100 text-gray-500 border-gray-300';
+                },
+
+                getInvoicePaidAmount(invoice) {
+                    if (!invoice) return 0;
+                    const paid = Number(invoice.paidAmount || 0);
+                    return paid > 0 ? paid : (invoice.status === 'Paid' ? Number(invoice.billAmount || 0) : 0);
+                },
+
+                openMonthDetail(shop, year, month) {
+                    if (!shop) return;
+                    this.monthDetailModal.shop = shop;
+                    this.monthDetailModal.year = Number(year);
+                    this.monthDetailModal.month = month;
+                    this.monthDetailModal.invoice = this.getMonthInvoice(shop.id, year, month);
+                    this.monthDetailModal.open = true;
+                },
+
                 openPaymentModal(shop, year, month) {
                     let inv = this.getInvoice(shop.id, year, month);
                     if (!inv || Number(inv.billAmount || 0) <= 0) {
@@ -1193,6 +1295,7 @@
                     this.paymentModal.status = inv.status || 'Unpaid';
                     this.paymentModal.paidAmount = Number(inv.paidAmount || 0);
                     this.paymentModal.paymentDate = inv.paymentDate || new Date().toISOString().split('T')[0];
+                    this.monthDetailModal.open = false;
                     this.paymentModal.open = true;
                 },
 
@@ -1273,17 +1376,16 @@
                 },
 
                 printReport() {
-                    // Called directly by the user's button click so mobile browsers can open print preview.
                     try {
                         if (typeof window.print !== 'function') {
-                            alert('এই ব্রাউজারে Print / PDF সুবিধা পাওয়া যাচ্ছে না। Chrome দিয়ে চেষ্টা করুন।');
+                            this.showToast('এই ব্রাউজারে Print / PDF সুবিধা পাওয়া যাচ্ছে না। Chrome দিয়ে চেষ্টা করুন।', 'error');
                             return;
                         }
                         window.focus();
                         window.print();
                     } catch (error) {
                         console.error('Print / PDF failed:', error);
-                        alert('PDF প্রিন্ট চালু করা যায়নি। পেজটি রিফ্রেশ করে আবার চেষ্টা করুন।');
+                        this.showToast('PDF প্রিন্ট চালু করা যায়নি। পেজ রিফ্রেশ করে আবার চেষ্টা করুন।', 'error');
                     }
                 },
 

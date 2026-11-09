@@ -1,4 +1,4 @@
-const CACHE_NAME = 'market-management-pwa-v6';
+const CACHE_NAME = 'market-management-pwa-v7';
 const APP_SHELL = [
   new URL('./', self.registration.scope).href,
   new URL('index.html', self.registration.scope).href,

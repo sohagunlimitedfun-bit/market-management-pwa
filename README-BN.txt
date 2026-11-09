@@ -28,10 +28,10 @@ MARKET MANAGEMENT PWA
 - আপডেটের আগে Settings থেকে JSON ব্যাকআপ ডাউনলোড করে রাখুন।
 
 
-PDF / PRINT FIX (v6)
-- রিপোর্ট পেজের Print / PDF বাটনের printReport() ফাংশন যোগ করা হয়েছে।
-- প্রিন্টের সময় শুধু রিপোর্ট অংশ দেখানোর জন্য print CSS উন্নত করা হয়েছে।
-- Service Worker cache version v6 করা হয়েছে এবং navigation cache.put() সংশোধন করা হয়েছে।
-- PWA manifest-এ উল্লেখ করা 192px ও 512px আইকন যোগ করা হয়েছে।
-- IndexedDB / localStorage ডেটা মুছে ফেলার কোনো কোড যোগ করা হয়নি।
-মোবাইলে Chrome-এ রিপোর্ট খুলে Print / PDF চাপুন, তারপর Print preview থেকে Save as PDF বেছে নিন।
+নতুন আপডেট (v7)
+- ইনভয়েস তালিকায় ব্যবসায়ী সার্চবার যোগ হয়েছে।
+- প্রতিটি ব্যবসায়ীর পাশে Edit বাটনে ১২ মাসের স্ট্যাটাস দেখা যাবে।
+- Paid সবুজ, Unpaid লাল, Partial Paid হলুদ এবং বিল এন্ট্রি না থাকলে ধূসর দেখাবে।
+- মাসে চাপ দিলে ওই মাসের বিল, জমা, বকেয়া ও পেমেন্ট তারিখ দেখা যাবে।
+- বিদ্যমান invoice key / data structure অপরিবর্তিত রাখা হয়েছে; পুরোনো বিল-পেমেন্ট রেকর্ড মুছে ফেলা বা নতুন করে বানানো হয়নি।
+- PDF Print function এবং Service Worker cache bug-ও সংশোধন করা হয়েছে।
