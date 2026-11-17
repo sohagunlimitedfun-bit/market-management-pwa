@@ -1485,5 +1485,20 @@
             });
         }
     </script>
+<script>
+const MARKET_API_URL = "https://script.google.com/macros/s/AKfycbxmoOuhaZxhyLJ-XuF0xvQgIkKpelYToGAowH0PasYLa_xdvH8Mq6Myn2oA5wDvDkX9/exec";
+
+async function testMarketConnection() {
+  try {
+    const response = await fetch(
+      MARKET_API_URL + "?action=ping"
+    );
+    const result = await response.json();
+    console.log("Market API:", result);
+  } catch (error) {
+    console.error("Market API Error:", error);
+  }
+}
+</script>
 </body>
 </html>
