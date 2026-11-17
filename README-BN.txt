@@ -35,3 +35,6 @@ MARKET MANAGEMENT PWA
 - মাসে চাপ দিলে ওই মাসের বিল, জমা, বকেয়া ও পেমেন্ট তারিখ দেখা যাবে।
 - বিদ্যমান invoice key / data structure অপরিবর্তিত রাখা হয়েছে; পুরোনো বিল-পেমেন্ট রেকর্ড মুছে ফেলা বা নতুন করে বানানো হয়নি।
 - PDF Print function এবং Service Worker cache bug-ও সংশোধন করা হয়েছে।
+
+
+Google Sheets Sync আপডেট: Settings ট্যাবে Google Sheets সিঙ্ক বাটন যোগ হয়েছে। Apps Script-এর নতুন কোড ও ধাপ google-sheets-connector/README-BN.txt-এ আছে। প্রথমবার সিঙ্কের আগে JSON ব্যাকআপ রাখুন।

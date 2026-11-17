@@ -110,7 +110,12 @@
                 </div>
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-1.5"><i class="fa-solid fa-lock text-marketGreen-600 mr-2"></i>পাসওয়ার্ড</label>
-                    <input type="password" x-model="loginForm.password" required class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-marketGreen-500 focus:outline-none transition">
+                    <div x-data="{ showLoginPassword: false }" class="relative">
+                    <input :type="showLoginPassword ? 'text' : 'password'" x-model="loginForm.password" required class="w-full px-4 py-3 pr-12 border border-gray-300 rounded-xl focus:ring-2 focus:ring-marketGreen-500 focus:outline-none transition">
+                    <button type="button" @click="showLoginPassword = !showLoginPassword" :aria-label="showLoginPassword ? 'পাসওয়ার্ড লুকান' : 'পাসওয়ার্ড দেখান'" :title="showLoginPassword ? 'পাসওয়ার্ড লুকান' : 'পাসওয়ার্ড দেখান'" class="absolute inset-y-0 right-0 px-4 flex items-center text-gray-500 hover:text-marketGreen-600 focus:outline-none" style="z-index: 2;">
+                        <i :class="showLoginPassword ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye'"></i>
+                    </button>
+                </div>
                 </div>
                 <button type="submit" class="w-full py-3.5 bg-marketGreen-600 hover:bg-marketGreen-700 text-white font-bold rounded-xl shadow-lg transition duration-200">
                     লগইন করুন <i class="fa-solid fa-arrow-right ml-2"></i>
@@ -552,12 +557,31 @@
                                 </div>
                                 <div>
                                     <label class="block text-sm font-semibold text-gray-700 mb-1">নতুন অ্যাডমিন পাসওয়ার্ড</label>
-                                    <input type="password" x-model="settings.newPassword" placeholder="খালি রাখলে পুরোনো পাসওয়ার্ড থাকবে" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-marketGreen-500">
+                                    <div x-data="{ showNewPassword: false }" class="relative">
+                                    <input :type="showNewPassword ? 'text' : 'password'" x-model="settings.newPassword" placeholder="খালি রাখলে পুরোনো পাসওয়ার্ড থাকবে" class="w-full px-4 py-2.5 pr-12 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-marketGreen-500">
+                                    <button type="button" @click="showNewPassword = !showNewPassword" :aria-label="showNewPassword ? 'পাসওয়ার্ড লুকান' : 'পাসওয়ার্ড দেখান'" :title="showNewPassword ? 'পাসওয়ার্ড লুকান' : 'পাসওয়ার্ড দেখান'" class="absolute inset-y-0 right-0 px-4 flex items-center text-gray-500 hover:text-marketGreen-600 focus:outline-none" style="z-index: 2;">
+                                        <i :class="showNewPassword ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye'"></i>
+                                    </button>
+                                </div>
                                 </div>
                                 <button type="submit" class="px-5 py-2.5 bg-marketGreen-600 hover:bg-marketGreen-700 text-white rounded-xl font-semibold text-sm transition shadow">
                                     সেটিংস সংরক্ষণ করুন
                                 </button>
                             </form>
+                        </div>
+
+                        <!-- Google Sheets Cloud Sync -->
+                        <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 space-y-3">
+                            <h3 class="text-lg font-bold text-gray-800 border-b pb-3"><i class="fa-brands fa-google text-marketGreen-600 mr-2"></i> Google Sheets — দুই ডিভাইসে ডাটা</h3>
+                            <p class="text-xs text-gray-600">ইন্টারনেট চালু রেখে দুই ফোনেই এই বাটন চাপলে দোকান ও তৈরি করা মাসিক বিল মিলিয়ে নেওয়া হবে। অফলাইনে আগের মতো কাজ হবে; অনলাইনে এলে আবার সিঙ্ক করুন।</p>
+                            <div class="flex flex-wrap items-center gap-3">
+                                <button @click="syncWithCloud()" :disabled="cloudSyncing" class="px-4 py-2.5 bg-marketGreen-600 hover:bg-marketGreen-700 disabled:opacity-60 text-white rounded-xl text-sm font-semibold transition shadow">
+                                    <i class="fa-solid fa-rotate" :class="cloudSyncing ? 'fa-spin' : ''"></i>
+                                    <span x-text="cloudSyncing ? 'সিঙ্ক হচ্ছে...' : 'এখনই Google Sheets সিঙ্ক করুন'"></span>
+                                </button>
+                                <span class="text-xs text-gray-600" x-text="cloudSyncMessage"></span>
+                            </div>
+                            <p class="text-[11px] text-amber-700">প্রথমবার সিঙ্কের আগে এই ফোনের JSON ব্যাকআপ রেখে দিন। বিল তৈরি না করা ফাঁকা মাস সিঙ্ক হবে না।</p>
                         </div>
 
                         <!-- Data Backup & Feature Manager -->
@@ -894,6 +918,112 @@
             });
         }
 
+        // Google Sheets sync bridge. Local IndexedDB remains the primary offline store.
+        const MARKET_API_URL = 'https://script.google.com/macros/s/AKfycbxmoOuhaZxhyLJ-XuF0xvQgIkKpelYToGAowH0PasYLa_xdvH8Mq6Myn2oA5wDvDkX9/exec';
+        let marketCloudSyncTimer = null;
+        let marketCloudApplying = false;
+
+        function marketCloudRead() {
+            return new Promise((resolve, reject) => {
+                const callbackName = '__marketCloudCallback_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
+                const script = document.createElement('script');
+                let finished = false;
+                const cleanup = () => {
+                    if (finished) return;
+                    finished = true;
+                    clearTimeout(timer);
+                    script.remove();
+                    try { delete window[callbackName]; } catch (_) { window[callbackName] = undefined; }
+                };
+                const timer = setTimeout(() => { cleanup(); reject(new Error('Google Sheets থেকে উত্তর পাওয়া যায়নি। Google account login ও Apps Script deployment পরীক্ষা করুন।')); }, 18000);
+                window[callbackName] = (result) => { cleanup(); resolve(result); };
+                script.onerror = () => { cleanup(); reject(new Error('Google Sheets API খোলা যায়নি।')); };
+                script.src = MARKET_API_URL + '?action=read&callback=' + encodeURIComponent(callbackName) + '&_=' + Date.now();
+                document.head.appendChild(script);
+            });
+        }
+
+        function marketCloudComparable(value) {
+            const copy = JSON.parse(JSON.stringify(value || {}));
+            delete copy._updatedAt;
+            return JSON.stringify(copy);
+        }
+
+        function marketCloudBaseline(app) {
+            const shops = {};
+            (app.shops || []).forEach(shop => { shops[String(shop.id)] = marketCloudComparable(shop); });
+            const invoices = {};
+            Object.entries(app.invoices || {}).forEach(([key, inv]) => {
+                if (inv && Number(inv.billAmount || 0) > 0) invoices[key] = marketCloudComparable(inv);
+            });
+            localStorage.setItem('market_sync_baseline', JSON.stringify({ shops, invoices }));
+        }
+
+        function marketCloudStampChanges(app) {
+            const now = new Date().toISOString();
+            let baseline = {};
+            try { baseline = JSON.parse(localStorage.getItem('market_sync_baseline') || '{}') || {}; } catch (_) {}
+            const oldShops = baseline.shops || {};
+            const oldInvoices = baseline.invoices || {};
+            const currentShops = {};
+            const currentInvoices = {};
+            let tombstones = [];
+            try { tombstones = JSON.parse(localStorage.getItem('market_sync_tombstones') || '[]') || []; } catch (_) {}
+            const tombstoneMap = new Map(tombstones.map(t => [t.type + ':' + t.id, t]));
+
+            (app.shops || []).forEach(shop => {
+                const id = String(shop.id);
+                const comparable = marketCloudComparable(shop);
+                if (!oldShops[id] || oldShops[id] !== comparable) shop._updatedAt = now;
+                currentShops[id] = comparable;
+                const priorDelete = tombstoneMap.get('Shops:' + id);
+                if (priorDelete && Date.parse(shop._updatedAt || 0) > Date.parse(priorDelete.updatedAt || 0)) tombstoneMap.delete('Shops:' + id);
+            });
+            Object.keys(oldShops).forEach(id => {
+                if (!currentShops[id]) tombstoneMap.set('Shops:' + id, { type: 'Shops', id, updatedAt: now, deleted: true });
+            });
+
+            Object.entries(app.invoices || {}).forEach(([key, inv]) => {
+                if (!inv || Number(inv.billAmount || 0) <= 0) return;
+                const comparable = marketCloudComparable(inv);
+                if (!oldInvoices[key] || oldInvoices[key] !== comparable) inv._updatedAt = now;
+                currentInvoices[key] = comparable;
+                const priorDelete = tombstoneMap.get('Bill:' + key);
+                if (priorDelete && Date.parse(inv._updatedAt || 0) > Date.parse(priorDelete.updatedAt || 0)) tombstoneMap.delete('Bill:' + key);
+            });
+            Object.keys(oldInvoices).forEach(key => {
+                if (!currentInvoices[key]) tombstoneMap.set('Bill:' + key, { type: 'Bill', id: key, updatedAt: now, deleted: true });
+            });
+            localStorage.setItem('market_sync_tombstones', JSON.stringify(Array.from(tombstoneMap.values())));
+            localStorage.setItem('market_sync_baseline', JSON.stringify({ shops: currentShops, invoices: currentInvoices }));
+        }
+
+        function marketCloudPost(payload) {
+            // A simple form-encoded POST avoids a browser CORS preflight to Apps Script.
+            return fetch(MARKET_API_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+                body: 'payload=' + encodeURIComponent(JSON.stringify(payload))
+            });
+        }
+
+        function marketCloudMonthKey(monthName, months) {
+            const found = Object.keys(months || {}).find(key => months[key] === String(monthName));
+            return found || String(monthName || '').toLowerCase();
+        }
+
+        function marketCloudBillKey(row, months) {
+            const values = row && row.values || [];
+            const shopId = values[1];
+            const year = values[4];
+            const month = marketCloudMonthKey(values[3], months);
+            if (shopId !== undefined && shopId !== '' && year !== undefined && year !== '' && month) {
+                return String(shopId) + '_' + String(year) + '_' + month;
+            }
+            return String((row && row.id) || values[0] || '');
+        }
+
         function marketApp() {
             return {
                 isLoggedIn: localStorage.getItem('market_logged_in') === 'true',
@@ -957,6 +1087,9 @@
                 monthDetailModal: { open: false, shop: null, year: null, month: '', invoice: null },
                 paymentModal: { open: false, shopId: null, shopName: '', year: null, month: '', totalBill: 0, paidAmount: 0, status: 'Unpaid', paymentDate: '' },
                 detailsModal: { open: false, shop: {} },
+                cloudSyncing: false,
+                cloudSyncMessage: 'এখনো সিঙ্ক করা হয়নি।',
+                localDataExisted: false,
 
                 async init() {
                     try {
@@ -968,6 +1101,11 @@
                         ]);
 
                         // First run: migrate existing localStorage data (or starter examples) into IndexedDB.
+                        if (localStorage.getItem('market_cloud_empty_device') === 'true') this.localDataExisted = false;
+                        else {
+                            this.localDataExisted = savedShops !== undefined || localStorage.getItem('market_shops') !== null;
+                            if (!this.localDataExisted) localStorage.setItem('market_cloud_empty_device', 'true');
+                        }
                         if (savedShops !== undefined) this.shops = savedShops;
                         if (savedInvoices !== undefined) this.invoices = savedInvoices;
                         if (savedSettings !== undefined) {
@@ -986,6 +1124,9 @@
                             }
                         });
                         await this.saveData();
+                        window.addEventListener('online', () => {
+                            if (localStorage.getItem('market_cloud_sync_enabled') === 'true') this.syncWithCloud({ silent: true });
+                        });
                     } catch (error) {
                         console.error('IndexedDB initialization failed:', error);
                         this.storageMode = 'localstorage';
@@ -1058,6 +1199,7 @@
                 },
 
                 async saveData() {
+                    if (!marketCloudApplying) marketCloudStampChanges(this);
                     // Always try the browser's local storage first so a blocked IndexedDB
                     // does not cause the user's shop/payment data to be discarded.
                     let localSaved = false;
@@ -1085,6 +1227,11 @@
                             settings: settingsToSave
                         });
                         this.storageMode = 'indexeddb';
+                        if (marketCloudApplying) marketCloudBaseline(this);
+                        else if (localStorage.getItem('market_cloud_sync_enabled') === 'true' && navigator.onLine) {
+                            clearTimeout(marketCloudSyncTimer);
+                            marketCloudSyncTimer = setTimeout(() => this.syncWithCloud({ silent: true }), 1800);
+                        }
                         return true;
                     } catch (error) {
                         console.error('IndexedDB save failed:', error);
@@ -1092,10 +1239,166 @@
                         const reason = error && (error.name || error.message) ? `${error.name || 'Error'}: ${error.message || ''}` : 'অজানা সমস্যা';
                         if (localSaved) {
                             this.showToast('IndexedDB চালু হয়নি; তথ্য LocalStorage-এ সেভ হয়েছে। ' + reason, 'error');
+                            if (marketCloudApplying) marketCloudBaseline(this);
+                            else if (localStorage.getItem('market_cloud_sync_enabled') === 'true' && navigator.onLine) {
+                                clearTimeout(marketCloudSyncTimer);
+                                marketCloudSyncTimer = setTimeout(() => this.syncWithCloud({ silent: true }), 1800);
+                            }
                             return true;
                         }
                         this.showToast('কোনো স্টোরেজেই তথ্য সেভ হয়নি। ' + reason + (localError ? ' / ' + localError.message : ''), 'error');
                         return false;
+                    }
+                },
+
+                async syncWithCloud(options = {}) {
+                    if (this.cloudSyncing) return;
+                    if (!navigator.onLine) {
+                        this.cloudSyncMessage = 'ইন্টারনেট সংযোগ নেই। অনলাইনে এসে আবার চাপুন।';
+                        if (!options.silent) this.showToast(this.cloudSyncMessage, 'error');
+                        return;
+                    }
+                    this.cloudSyncing = true;
+                    this.cloudSyncMessage = 'Google Sheets থেকে তথ্য নেওয়া হচ্ছে...';
+                    try {
+                        // On a fresh second device, discard only the app's built-in demo rows before pulling cloud data.
+                        if (!this.localDataExisted && localStorage.getItem('market_cloud_sync_enabled') !== 'true') {
+                            this.shops = [];
+                            this.invoices = {};
+                            marketCloudBaseline(this);
+                        } else {
+                            marketCloudStampChanges(this);
+                        }
+
+                        const first = await marketCloudRead();
+                        if (!first || first.success !== true || !first.data) {
+                            throw new Error((first && first.error) || 'Apps Script থেকে সঠিক ডাটা পাওয়া যায়নি।');
+                        }
+                        const remoteShops = Array.isArray(first.data.Shops) ? first.data.Shops : [];
+                        const remoteBills = Array.isArray(first.data.Bill) ? first.data.Bill : [];
+                        const localShops = new Map((this.shops || []).map(s => [String(s.id), s]));
+                        const localInvoices = this.invoices || {};
+
+                        remoteShops.forEach(row => {
+                            const values = row.values || [];
+                            const id = String(row.id || values[0] || '');
+                            if (!id) return;
+                            const local = localShops.get(id);
+                            const localTime = Date.parse((local || {})._updatedAt || 0) || 0;
+                            const remoteTime = Date.parse(row.updatedAt || 0) || 0;
+                            if (row.deleted) {
+                                if (local && remoteTime >= localTime) localShops.delete(id);
+                                return;
+                            }
+                            if (!local || remoteTime > localTime) {
+                                localShops.set(id, {
+                                    id: /^\d+$/.test(id) ? Number(id) : id,
+                                    name: values[1] || '', businessType: values[2] || '', owner: values[3] || '',
+                                    mobile: values[4] || '', address: values[5] || '', serialNo: values[6] || '',
+                                    monthlyBill: Number(values[7] || 0), _updatedAt: row.updatedAt || new Date(0).toISOString()
+                                });
+                            }
+                        });
+
+                        remoteBills.forEach(row => {
+                            const values = row.values || [];
+                            const key = marketCloudBillKey(row, this.months);
+                            if (!key) return;
+                            const local = localInvoices[key];
+                            const localTime = Date.parse((local || {})._updatedAt || 0) || 0;
+                            const remoteTime = Date.parse(row.updatedAt || 0) || 0;
+                            if (row.deleted) {
+                                if (local && remoteTime >= localTime) delete localInvoices[key];
+                                return;
+                            }
+                            if (!local || remoteTime > localTime) {
+                                const parts = key.split('_');
+                                const monthKey = marketCloudMonthKey(values[3], this.months);
+                                const invoiceKey = parts.length >= 3 ? parts.slice(0,2).join('_') + '_' + monthKey : key;
+                                localInvoices[invoiceKey] = {
+                                    billAmount: Number(values[5] || 0), paidAmount: Number(values[6] || 0),
+                                    status: values[8] || 'Unpaid', paymentDate: '', _updatedAt: row.updatedAt || new Date(0).toISOString()
+                                };
+                                if (invoiceKey !== key) localInvoices[key] = localInvoices[invoiceKey];
+                            }
+                        });
+
+                        this.shops = Array.from(localShops.values());
+                        this.invoices = localInvoices;
+                        const tombstones = JSON.parse(localStorage.getItem('market_sync_tombstones') || '[]');
+                        const payload = {
+                            action: 'sync',
+                            data: {
+                                Shops: this.shops.map(shop => ({
+                                    id: String(shop.id), updatedAt: shop._updatedAt || new Date().toISOString(), deleted: false,
+                                    values: [String(shop.id), shop.name || '', shop.businessType || '', shop.owner || '', shop.mobile || '', shop.address || '', shop.serialNo || '', Number(shop.monthlyBill || 0)]
+                                })),
+                                Bill: Object.entries(this.invoices || {}).filter(([,inv]) => inv && Number(inv.billAmount || 0) > 0).map(([key,inv]) => {
+                                    const parts = key.split('_');
+                                    const shopId = parts[0], year = parts[1], month = parts.slice(2).join('_');
+                                    const shop = this.shops.find(s => String(s.id) === String(shopId)) || {};
+                                    const bill = Number(inv.billAmount || 0), paid = Number(inv.paidAmount || 0);
+                                    return { id: key, updatedAt: inv._updatedAt || new Date().toISOString(), deleted: false,
+                                        values: [key, shopId, shop.name || '', this.months[month] || month, year, bill, paid, Math.max(0,bill-paid), inv.status || (paid >= bill ? 'Paid' : paid > 0 ? 'Partial Paid' : 'Unpaid')]
+                                    };
+                                }),
+                                Tombstones: tombstones
+                            }
+                        };
+                        this.cloudSyncMessage = 'পরিবর্তন Google Sheets-এ পাঠানো হচ্ছে...';
+                        await marketCloudPost(payload);
+                        await new Promise(resolve => setTimeout(resolve, 1400));
+                        const verify = await marketCloudRead();
+                        if (!verify || verify.success !== true || !verify.data) throw new Error('সিঙ্কের পর যাচাই করা যায়নি।');
+                        const cloudShopRows = new Map((verify.data.Shops || []).map(r => [String(r.id), r]));
+                        const cloudBillRows = new Map((verify.data.Bill || []).map(r => [String(r.id), r]));
+                        const missingShop = payload.data.Shops.some(r => {
+                            const cloud = cloudShopRows.get(String(r.id));
+                            return !cloud || (Date.parse(cloud.updatedAt || 0) || 0) < (Date.parse(r.updatedAt || 0) || 0);
+                        });
+                        const missingBill = payload.data.Bill.some(r => {
+                            const cloud = cloudBillRows.get(String(r.id));
+                            return !cloud || (Date.parse(cloud.updatedAt || 0) || 0) < (Date.parse(r.updatedAt || 0) || 0);
+                        });
+                        if (missingShop || missingBill) throw new Error('কিছু তথ্য Google Sheets-এ পৌঁছায়নি। Apps Script পুনরায় Deploy করে আবার চেষ্টা করুন।');
+                        const cloudShopIds = new Set((verify.data.Shops || []).filter(r => !r.deleted).map(r => String(r.id)));
+                        const cloudBillIds = new Set((verify.data.Bill || []).filter(r => !r.deleted).map(r => String(r.id)));
+
+                        marketCloudApplying = true;
+                        // Pull any newer rows written by the other device after this device's upload.
+                        verify.data.Shops.forEach(row => {
+                            if (row.deleted) return;
+                            const vals = row.values || [], id = String(row.id || vals[0] || '');
+                            if (!id) return;
+                            const current = this.shops.find(s => String(s.id) === id);
+                            if (!current || (Date.parse(row.updatedAt || 0) || 0) > (Date.parse(current._updatedAt || 0) || 0)) {
+                                const mapped = { id: /^\d+$/.test(id) ? Number(id) : id, name: vals[1] || '', businessType: vals[2] || '', owner: vals[3] || '', mobile: vals[4] || '', address: vals[5] || '', serialNo: vals[6] || '', monthlyBill: Number(vals[7] || 0), _updatedAt: row.updatedAt || '' };
+                                this.shops = this.shops.filter(s => String(s.id) !== id); this.shops.push(mapped);
+                            }
+                        });
+                        verify.data.Bill.forEach(row => {
+                            if (row.deleted) return;
+                            const vals = row.values || [], key = marketCloudBillKey(row, this.months);
+                            const parts = key.split('_'); if (parts.length < 3) return;
+                            const current = this.invoices[key];
+                            if (!current || (Date.parse(row.updatedAt || 0) || 0) > (Date.parse(current._updatedAt || 0) || 0)) {
+                                this.invoices[key] = { billAmount: Number(vals[5] || 0), paidAmount: Number(vals[6] || 0), status: vals[8] || 'Unpaid', paymentDate: '', _updatedAt: row.updatedAt || '' };
+                            }
+                        });
+                        await this.saveData();
+                        marketCloudBaseline(this);
+                        localStorage.setItem('market_cloud_sync_enabled', 'true');
+                        localStorage.removeItem('market_cloud_empty_device');
+                        this.localDataExisted = true;
+                        this.cloudSyncMessage = 'সিঙ্ক সম্পন্ন — দোকান ' + cloudShopIds.size + 'টি, বিল ' + cloudBillIds.size + 'টি';
+                        if (!options.silent) this.showToast('Google Sheets সিঙ্ক সম্পন্ন হয়েছে।');
+                    } catch (error) {
+                        console.error('Google Sheets sync failed:', error);
+                        this.cloudSyncMessage = 'সিঙ্ক হয়নি: ' + (error.message || error);
+                        if (!options.silent) this.showToast(this.cloudSyncMessage, 'error');
+                    } finally {
+                        marketCloudApplying = false;
+                        this.cloudSyncing = false;
                     }
                 },
 
@@ -1177,7 +1480,7 @@
                             this.showToast('কমপক্ষে ১টি এবং সর্বোচ্চ ১২টি মাস নির্বাচন করুন।', 'error'); return;
                         }
                         const year = Number(this.shopForm.entryYear);
-                        const newId = this.shops.length ? Math.max(...this.shops.map(s => Number(s.id) || 0)) + 1 : 1;
+                        const newId = Math.max(Date.now() * 100 + Math.floor(Math.random() * 100), this.shops.length ? Math.max(...this.shops.map(s => Number(s.id) || 0)) + 1 : 1);
                         const newShop = { id: newId, serialNo: this.shopForm.serialNo, name: this.shopForm.name,
                             owner: this.shopForm.owner, mobile: this.shopForm.mobile, businessType: this.shopForm.businessType,
                             monthlyBill: billVal, address: this.shopForm.address };
@@ -1485,20 +1788,5 @@
             });
         }
     </script>
-<script>
-const MARKET_API_URL = "https://script.google.com/macros/s/AKfycbxmoOuhaZxhyLJ-XuF0xvQgIkKpelYToGAowH0PasYLa_xdvH8Mq6Myn2oA5wDvDkX9/exec";
-
-async function testMarketConnection() {
-  try {
-    const response = await fetch(
-      MARKET_API_URL + "?action=ping"
-    );
-    const result = await response.json();
-    console.log("Market API:", result);
-  } catch (error) {
-    console.error("Market API Error:", error);
-  }
-}
-</script>
 </body>
 </html>

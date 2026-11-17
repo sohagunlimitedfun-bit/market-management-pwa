@@ -110,7 +110,12 @@
                 </div>
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-1.5"><i class="fa-solid fa-lock text-marketGreen-600 mr-2"></i>পাসওয়ার্ড</label>
-                    <input type="password" x-model="loginForm.password" required class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-marketGreen-500 focus:outline-none transition">
+                    <div x-data="{ showLoginPassword: false }" class="relative">
+                    <input :type="showLoginPassword ? 'text' : 'password'" x-model="loginForm.password" required class="w-full px-4 py-3 pr-12 border border-gray-300 rounded-xl focus:ring-2 focus:ring-marketGreen-500 focus:outline-none transition">
+                    <button type="button" @click="showLoginPassword = !showLoginPassword" :aria-label="showLoginPassword ? 'পাসওয়ার্ড লুকান' : 'পাসওয়ার্ড দেখান'" :title="showLoginPassword ? 'পাসওয়ার্ড লুকান' : 'পাসওয়ার্ড দেখান'" class="absolute inset-y-0 right-0 px-4 flex items-center text-gray-500 hover:text-marketGreen-600 focus:outline-none" style="z-index: 2;">
+                        <i :class="showLoginPassword ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye'"></i>
+                    </button>
+                </div>
                 </div>
                 <button type="submit" class="w-full py-3.5 bg-marketGreen-600 hover:bg-marketGreen-700 text-white font-bold rounded-xl shadow-lg transition duration-200">
                     লগইন করুন <i class="fa-solid fa-arrow-right ml-2"></i>
@@ -552,7 +557,12 @@
                                 </div>
                                 <div>
                                     <label class="block text-sm font-semibold text-gray-700 mb-1">নতুন অ্যাডমিন পাসওয়ার্ড</label>
-                                    <input type="password" x-model="settings.newPassword" placeholder="খালি রাখলে পুরোনো পাসওয়ার্ড থাকবে" class="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-marketGreen-500">
+                                    <div x-data="{ showNewPassword: false }" class="relative">
+                                    <input :type="showNewPassword ? 'text' : 'password'" x-model="settings.newPassword" placeholder="খালি রাখলে পুরোনো পাসওয়ার্ড থাকবে" class="w-full px-4 py-2.5 pr-12 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-marketGreen-500">
+                                    <button type="button" @click="showNewPassword = !showNewPassword" :aria-label="showNewPassword ? 'পাসওয়ার্ড লুকান' : 'পাসওয়ার্ড দেখান'" :title="showNewPassword ? 'পাসওয়ার্ড লুকান' : 'পাসওয়ার্ড দেখান'" class="absolute inset-y-0 right-0 px-4 flex items-center text-gray-500 hover:text-marketGreen-600 focus:outline-none" style="z-index: 2;">
+                                        <i :class="showNewPassword ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye'"></i>
+                                    </button>
+                                </div>
                                 </div>
                                 <button type="submit" class="px-5 py-2.5 bg-marketGreen-600 hover:bg-marketGreen-700 text-white rounded-xl font-semibold text-sm transition shadow">
                                     সেটিংস সংরক্ষণ করুন
