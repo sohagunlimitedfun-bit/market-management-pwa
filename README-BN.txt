@@ -37,4 +37,4 @@ MARKET MANAGEMENT PWA
 - PDF Print function এবং Service Worker cache bug-ও সংশোধন করা হয়েছে।
 
 
-Google Sheets Sync আপডেট: Settings ট্যাবে Google Sheets সিঙ্ক বাটন যোগ হয়েছে। Apps Script-এর নতুন কোড ও ধাপ google-sheets-connector/README-BN.txt-এ আছে। প্রথমবার সিঙ্কের আগে JSON ব্যাকআপ রাখুন।
+Google Sheets / Apps Script সংযোগ সরানো হয়েছে। এই সংস্করণে তথ্য এই ডিভাইসের LocalStorage ও IndexedDB-তে সংরক্ষিত হয়; একাধিক ডিভাইসের মধ্যে সার্ভার-সিঙ্ক এখনো যুক্ত করা হয়নি।
